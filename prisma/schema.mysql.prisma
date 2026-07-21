@@ -49,6 +49,19 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum BillingInterval {
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum RecurringStatus {
+  PENDING
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -126,6 +139,11 @@ model Client {
   phone           String?
   address         String?
   stripeCustomerId String?  @unique
+  /** Card on file for automatic monthly charges of open invoices */
+  autopayEnabled  Boolean   @default(false)
+  stripePaymentMethodId String?
+  autopayDay      Int       @default(1)
+  autopayEnabledAt DateTime?
   balanceCents    Int       @default(0)
   notes           String?   @db.Text
   createdAt       DateTime  @default(now())
@@ -136,6 +154,7 @@ model Client {
   staffAssignments StaffClientAssignment[]
   invoices        Invoice[]
   payments        Payment[]
+  recurringInvoices RecurringInvoice[]
   tasks           Task[]
   supportTickets  SupportTicket[]
   fileUploads     FileUpload[]
@@ -177,26 +196,53 @@ model StaffClientAssignment {
   @@map("staff_client_assignments")
 }
 
-model Invoice {
-  id              String        @id @default(cuid())
-  clientId        String
-  invoiceNumber   String        @unique
-  title           String
-  description     String?       @db.Text
-  amountCents     Int
-  status          InvoiceStatus @default(DRAFT)
-  dueDate         DateTime?
-  stripeInvoiceId String?
-  sentAt          DateTime?
-  paidAt          DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  deletedAt       DateTime?
+model RecurringInvoice {
+  id                   String          @id @default(cuid())
+  clientId             String
+  title                String
+  description          String?         @db.Text
+  amountCents          Int
+  interval             BillingInterval
+  status               RecurringStatus @default(PENDING)
+  stripeSubscriptionId String?         @unique
+  stripePriceId        String?
+  nextBillingAt        DateTime?
+  cancelledAt          DateTime?
+  createdById          String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
 
   client   Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  payments Payment[]
+  invoices Invoice[]
 
   @@index([clientId])
+  @@index([status])
+  @@map("recurring_invoices")
+}
+
+model Invoice {
+  id                 String        @id @default(cuid())
+  clientId           String
+  recurringInvoiceId String?
+  invoiceNumber      String        @unique
+  title              String
+  description        String?       @db.Text
+  amountCents        Int
+  status             InvoiceStatus @default(DRAFT)
+  dueDate            DateTime?
+  stripeInvoiceId    String?       @unique
+  sentAt             DateTime?
+  paidAt             DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  deletedAt          DateTime?
+
+  client           Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  recurringInvoice RecurringInvoice? @relation(fields: [recurringInvoiceId], references: [id], onDelete: SetNull)
+  payments         Payment[]
+
+  @@index([clientId])
+  @@index([recurringInvoiceId])
   @@index([status])
   @@index([dueDate])
   @@index([deletedAt])

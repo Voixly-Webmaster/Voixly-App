@@ -4,7 +4,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { createCheckoutSession } from "@/actions/invoices";
 
-export function PayNowButton({ invoiceId }: { invoiceId: string }) {
+export function PayNowButton({
+  invoiceId,
+  recurring = false,
+}: {
+  invoiceId: string;
+  /** First payment starts a Stripe subscription */
+  recurring?: boolean;
+}) {
   const [loading, setLoading] = useState(false);
 
   return (
@@ -21,7 +28,11 @@ export function PayNowButton({ invoiceId }: { invoiceId: string }) {
         }
       }}
     >
-      {loading ? "Loading..." : "Pay now"}
+      {loading
+        ? "Loading..."
+        : recurring
+          ? "Subscribe & pay"
+          : "Pay now"}
     </Button>
   );
 }

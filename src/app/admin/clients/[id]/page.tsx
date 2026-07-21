@@ -43,7 +43,11 @@ export default async function AdminClientDetailPage({
     <div className="space-y-6">
       <PageHeader
         title={client.companyName}
-        description={client.user.email}
+        description={
+          client.autopayEnabled
+            ? `${client.user.email} · Monthly Autopay on (day ${client.autopayDay})`
+            : client.user.email
+        }
         action={
           <div className="flex gap-2">
             <Button variant="outline" size="sm" asChild>

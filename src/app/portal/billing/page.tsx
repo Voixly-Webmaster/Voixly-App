@@ -6,22 +6,33 @@ import { StatCard } from "@/components/shared/stat-card";
 import { AlertBanner } from "@/components/shared/alert-banner";
 import { InvoiceStatusBadge } from "@/components/shared/status-badge";
 import { PayNowButton } from "@/components/billing/pay-button";
+import { AutopayPanel } from "@/components/billing/autopay-panel";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { intervalLabel, recurringStatusLabel } from "@/lib/billing";
+import { getStripe } from "@/lib/stripe";
 import { InvoiceStatus } from "@prisma/client";
 import { Wallet } from "lucide-react";
+import { Panel } from "@/components/shared/panel";
+import { Badge } from "@/components/ui/badge";
 
 export default async function PortalBillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ paid?: string }>;
+  searchParams: Promise<{ paid?: string; autopay?: string }>;
 }) {
   const user = await requireClient();
   const params = await searchParams;
   const clientId = user.clientId!;
 
-  const [invoices, payments] = await Promise.all([
+  const [client, invoices, payments, recurring] = await Promise.all([
+    prisma.client.findUnique({ where: { id: clientId } }),
     prisma.invoice.findMany({
       where: { clientId, deletedAt: null },
+      include: {
+        recurringInvoice: {
+          select: { id: true, interval: true, status: true, stripeSubscriptionId: true },
+        },
+      },
       orderBy: { createdAt: "desc" },
     }),
     prisma.payment.findMany({
@@ -30,7 +41,27 @@ export default async function PortalBillingPage({
       take: 20,
       include: { invoice: true },
     }),
+    prisma.recurringInvoice.findMany({
+      where: {
+        clientId,
+        status: { in: ["PENDING", "ACTIVE", "PAUSED"] },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
+
+  let cardHint: string | null = null;
+  if (client?.stripePaymentMethodId) {
+    try {
+      const stripe = await getStripe();
+      const pm = await stripe.paymentMethods.retrieve(client.stripePaymentMethodId);
+      if (pm.card) {
+        cardHint = `${pm.card.brand?.toUpperCase() ?? "Card"} •••• ${pm.card.last4}`;
+      }
+    } catch {
+      // Stripe key missing or PM deleted — panel still works
+    }
+  }
 
   const unpaidStatuses: InvoiceStatus[] = [InvoiceStatus.SENT, InvoiceStatus.OVERDUE];
   const balanceDue = invoices
@@ -41,12 +72,24 @@ export default async function PortalBillingPage({
     <div className="space-y-6">
       <PageHeader
         title="Billing"
-        description="View invoices, pay online, and review payment history"
+        description="Pay invoices, manage Autopay, and review payment history"
       />
 
       {params.paid === "1" && (
         <AlertBanner>
           Payment received — thank you! Your invoice will update shortly.
+        </AlertBanner>
+      )}
+
+      {params.autopay === "1" && (
+        <AlertBanner>
+          Monthly Autopay is on. Open invoices will be charged automatically.
+        </AlertBanner>
+      )}
+
+      {params.autopay === "cancelled" && (
+        <AlertBanner variant="warning">
+          Autopay setup was cancelled. You can try again anytime.
         </AlertBanner>
       )}
 
@@ -57,25 +100,76 @@ export default async function PortalBillingPage({
         accent="primary"
       />
 
+      <AutopayPanel
+        enabled={Boolean(client?.autopayEnabled)}
+        autopayDay={client?.autopayDay ?? 1}
+        cardHint={cardHint}
+      />
+
+      {recurring.length > 0 && (
+        <Panel
+          title="Your subscriptions"
+          description="Automatic charges after you subscribe"
+          accent="secondary"
+        >
+          <DataTable headers={["Plan", "Amount", "Interval", "Status", "Next bill"]}>
+            {recurring.map((r) => (
+              <DataTableRow key={r.id}>
+                <DataTableCell className="font-medium">{r.title}</DataTableCell>
+                <DataTableCell>{formatCurrency(r.amountCents)}</DataTableCell>
+                <DataTableCell className="capitalize">
+                  {intervalLabel(r.interval)}
+                </DataTableCell>
+                <DataTableCell>
+                  <Badge variant={r.status === "ACTIVE" ? "success" : "secondary"}>
+                    {recurringStatusLabel(r.status)}
+                  </Badge>
+                </DataTableCell>
+                <DataTableCell>
+                  {r.status === "PENDING" ? "After first payment" : formatDate(r.nextBillingAt)}
+                </DataTableCell>
+              </DataTableRow>
+            ))}
+          </DataTable>
+        </Panel>
+      )}
+
       <div className="space-y-4">
         <h2 className="text-lg font-semibold tracking-tight">Invoices</h2>
         <DataTable headers={["Invoice", "Due", "Amount", "Status", ""]}>
-          {invoices.map((inv) => (
-            <DataTableRow key={inv.id}>
-              <DataTableCell>
-                <p className="font-medium">{inv.title}</p>
-                <p className="text-xs text-muted-foreground">{inv.invoiceNumber}</p>
-              </DataTableCell>
-              <DataTableCell>{formatDate(inv.dueDate)}</DataTableCell>
-              <DataTableCell>{formatCurrency(inv.amountCents)}</DataTableCell>
-              <DataTableCell>
-                <InvoiceStatusBadge status={inv.status} />
-              </DataTableCell>
-              <DataTableCell className="text-right">
-                {unpaidStatuses.includes(inv.status) && <PayNowButton invoiceId={inv.id} />}
-              </DataTableCell>
-            </DataTableRow>
-          ))}
+          {invoices.map((inv) => {
+            const needsSubscribe =
+              unpaidStatuses.includes(inv.status) &&
+              !!inv.recurringInvoice &&
+              !inv.recurringInvoice.stripeSubscriptionId &&
+              inv.recurringInvoice.status !== "CANCELLED";
+
+            return (
+              <DataTableRow key={inv.id}>
+                <DataTableCell>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium">{inv.title}</p>
+                    {inv.recurringInvoice && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {intervalLabel(inv.recurringInvoice.interval)}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{inv.invoiceNumber}</p>
+                </DataTableCell>
+                <DataTableCell>{formatDate(inv.dueDate)}</DataTableCell>
+                <DataTableCell>{formatCurrency(inv.amountCents)}</DataTableCell>
+                <DataTableCell>
+                  <InvoiceStatusBadge status={inv.status} />
+                </DataTableCell>
+                <DataTableCell className="text-right">
+                  {unpaidStatuses.includes(inv.status) && (
+                    <PayNowButton invoiceId={inv.id} recurring={needsSubscribe} />
+                  )}
+                </DataTableCell>
+              </DataTableRow>
+            );
+          })}
         </DataTable>
       </div>
 

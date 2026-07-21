@@ -49,7 +49,7 @@ export default async function PaymentSettingsPage() {
             status={webhookSecret}
             label="Webhook signing secret"
             placeholder="whsec_..."
-            hint={`Create a webhook endpoint in Stripe pointing to ${webhookUrl} (event: checkout.session.completed) and paste its signing secret here. Stored encrypted.`}
+            hint={`Create a webhook endpoint pointing to ${webhookUrl}. Include: checkout.session.completed, checkout.session.expired, invoice.paid, invoice.payment_failed, customer.subscription.updated, customer.subscription.deleted. Stored encrypted.`}
           />
         </SettingsForm>
       </FormPanel>

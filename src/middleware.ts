@@ -16,7 +16,9 @@ export default auth((req) => {
   if (
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/webhooks") ||
-    pathname.startsWith("/api/files")
+    pathname.startsWith("/api/files") ||
+    pathname.startsWith("/api/integrations") ||
+    pathname.startsWith("/api/cron")
   ) {
     return NextResponse.next();
   }

@@ -6,65 +6,114 @@ import { requireAdmin, requireClient } from "@/lib/session-guard";
 import { assertClientAccess } from "@/lib/permissions";
 import { getStripe } from "@/lib/stripe";
 import { logActivity } from "@/lib/activity";
-import { InvoiceStatus, PaymentStatus, UserRole } from "@prisma/client";
-
-/**
- * Atomically pick the next invoice number.
- * Uses unique constraint + retry to avoid the count() race.
- */
-async function generateInvoiceNumber(): Promise<string> {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const latest = await prisma.invoice.findFirst({
-      orderBy: { createdAt: "desc" },
-      select: { invoiceNumber: true },
-    });
-    const lastNum = latest?.invoiceNumber?.match(/(\d+)$/)?.[1];
-    const next = (lastNum ? parseInt(lastNum, 10) : 0) + 1 + attempt;
-    const candidate = `INV-${String(next).padStart(5, "0")}`;
-    const taken = await prisma.invoice.findUnique({
-      where: { invoiceNumber: candidate },
-      select: { id: true },
-    });
-    if (!taken) return candidate;
-  }
-  return `INV-${Date.now()}`;
-}
+import {
+  InvoiceStatus,
+  PaymentStatus,
+  RecurringStatus,
+  UserRole,
+} from "@prisma/client";
+import {
+  generateInvoiceNumber,
+  intervalLabel,
+  parseBillingInterval,
+  toStripeInterval,
+} from "@/lib/billing";
 
 export async function createInvoice(formData: FormData) {
   const user = await requireAdmin();
   if (user.role !== UserRole.ADMIN) throw new Error("Unauthorized");
+
   const clientId = formData.get("clientId") as string;
   const title = formData.get("title") as string;
   const amount = parseFloat(formData.get("amount") as string);
   const dueDate = formData.get("dueDate") as string;
   const description = (formData.get("description") as string) || undefined;
+  const recurring = formData.get("recurring") === "on";
+  const interval = parseBillingInterval(formData.get("interval"));
 
   if (!clientId || !title?.trim() || isNaN(amount) || amount <= 0) {
     throw new Error("Client, title, and a positive amount are required");
   }
+  if (recurring && !interval) {
+    throw new Error("Choose a billing interval for recurring invoices");
+  }
   await assertClientAccess(user, clientId);
 
+  const amountCents = Math.round(amount * 100);
+  const trimmedTitle = title.trim();
   const invoiceNumber = await generateInvoiceNumber();
-  const invoice = await prisma.invoice.create({
-    data: {
-      clientId,
-      title: title.trim(),
-      description,
-      amountCents: Math.round(amount * 100),
-      status: InvoiceStatus.SENT,
-      dueDate: dueDate ? new Date(dueDate) : null,
-      sentAt: new Date(),
-      invoiceNumber,
-    },
-  });
 
-  await logActivity({
-    actorId: user.id,
-    clientId,
-    action: "invoice.created",
-    entityType: "invoice",
-    entityId: invoice.id,
-  });
+  if (recurring && interval) {
+    const recurringInvoice = await prisma.recurringInvoice.create({
+      data: {
+        clientId,
+        title: trimmedTitle,
+        description,
+        amountCents,
+        interval,
+        status: RecurringStatus.PENDING,
+        createdById: user.id,
+        invoices: {
+          create: {
+            clientId,
+            title: trimmedTitle,
+            description,
+            amountCents,
+            status: InvoiceStatus.SENT,
+            dueDate: dueDate ? new Date(dueDate) : null,
+            sentAt: new Date(),
+            invoiceNumber,
+          },
+        },
+      },
+      include: { invoices: true },
+    });
+
+    const firstInvoice = recurringInvoice.invoices[0];
+    await logActivity({
+      actorId: user.id,
+      clientId,
+      action: "invoice.recurring_created",
+      entityType: "recurring_invoice",
+      entityId: recurringInvoice.id,
+      metadata: {
+        interval,
+        invoiceId: firstInvoice?.id,
+        amountCents,
+      },
+    });
+  } else {
+    const invoice = await prisma.invoice.create({
+      data: {
+        clientId,
+        title: trimmedTitle,
+        description,
+        amountCents,
+        status: InvoiceStatus.SENT,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        sentAt: new Date(),
+        invoiceNumber,
+      },
+    });
+
+    await logActivity({
+      actorId: user.id,
+      clientId,
+      action: "invoice.created",
+      entityType: "invoice",
+      entityId: invoice.id,
+    });
+
+    // If the client has monthly Autopay on, charge their saved card now
+    const client = await prisma.client.findUnique({
+      where: { id: clientId },
+      select: { autopayEnabled: true, stripePaymentMethodId: true },
+    });
+    if (client?.autopayEnabled && client.stripePaymentMethodId) {
+      const { chargeInvoiceWithAutopay } = await import("@/lib/autopay");
+      await chargeInvoiceWithAutopay(invoice.id);
+    }
+  }
 
   revalidatePath("/admin/invoices");
   revalidatePath("/portal/billing");
@@ -79,10 +128,19 @@ export async function createCheckoutSession(invoiceId: string) {
       deletedAt: null,
       status: { in: [InvoiceStatus.SENT, InvoiceStatus.OVERDUE] },
     },
-    include: { client: true },
+    include: {
+      client: true,
+      recurringInvoice: true,
+    },
   });
 
   if (!invoice) throw new Error("Invoice not found");
+
+  const recurring = invoice.recurringInvoice;
+  const isSubscription =
+    !!recurring &&
+    recurring.status !== RecurringStatus.CANCELLED &&
+    !recurring.stripeSubscriptionId;
 
   let stripeCustomerId = invoice.client.stripeCustomerId;
   if (!stripeCustomerId) {
@@ -98,21 +156,34 @@ export async function createCheckoutSession(invoiceId: string) {
     });
   }
 
-  const appUrl = process.env.APP_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3010";
+  const appUrl =
+    process.env.APP_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3010";
+  const stripe = await getStripe();
 
-  const session = await (await getStripe()).checkout.sessions.create({
+  const productName = recurring
+    ? `${invoice.title} (${intervalLabel(recurring.interval)})`
+    : invoice.title;
+
+  const session = await stripe.checkout.sessions.create({
     customer: stripeCustomerId,
-    mode: "payment",
+    mode: isSubscription ? "subscription" : "payment",
     payment_method_types: ["card"],
     line_items: [
       {
         price_data: {
           currency: "usd",
           product_data: {
-            name: invoice.title,
+            name: productName,
             description: invoice.invoiceNumber,
           },
           unit_amount: invoice.amountCents,
+          ...(isSubscription && recurring
+            ? {
+                recurring: {
+                  interval: toStripeInterval(recurring.interval),
+                },
+              }
+            : {}),
         },
         quantity: 1,
       },
@@ -120,7 +191,19 @@ export async function createCheckoutSession(invoiceId: string) {
     metadata: {
       invoiceId: invoice.id,
       clientId: invoice.clientId,
+      ...(recurring ? { recurringInvoiceId: recurring.id } : {}),
     },
+    ...(isSubscription && recurring
+      ? {
+          subscription_data: {
+            metadata: {
+              recurringInvoiceId: recurring.id,
+              clientId: invoice.clientId,
+              firstInvoiceId: invoice.id,
+            },
+          },
+        }
+      : {}),
     success_url: `${appUrl}/portal/billing?paid=1`,
     cancel_url: `${appUrl}/portal/billing?cancelled=1`,
   });
@@ -136,6 +219,49 @@ export async function createCheckoutSession(invoiceId: string) {
   });
 
   return { url: session.url };
+}
+
+export async function cancelRecurringInvoice(recurringInvoiceId: string) {
+  const user = await requireAdmin();
+  if (user.role !== UserRole.ADMIN) throw new Error("Unauthorized");
+
+  const recurring = await prisma.recurringInvoice.findUnique({
+    where: { id: recurringInvoiceId },
+  });
+  if (!recurring) throw new Error("Recurring invoice not found");
+  await assertClientAccess(user, recurring.clientId);
+
+  if (recurring.status === RecurringStatus.CANCELLED) return;
+
+  if (recurring.stripeSubscriptionId) {
+    const stripe = await getStripe();
+    try {
+      await stripe.subscriptions.cancel(recurring.stripeSubscriptionId);
+    } catch (err) {
+      // Already cancelled in Stripe — still mark local record
+      console.warn("[stripe] cancel subscription", err);
+    }
+  }
+
+  await prisma.recurringInvoice.update({
+    where: { id: recurringInvoiceId },
+    data: {
+      status: RecurringStatus.CANCELLED,
+      cancelledAt: new Date(),
+      nextBillingAt: null,
+    },
+  });
+
+  await logActivity({
+    actorId: user.id,
+    clientId: recurring.clientId,
+    action: "invoice.recurring_cancelled",
+    entityType: "recurring_invoice",
+    entityId: recurring.id,
+  });
+
+  revalidatePath("/admin/invoices");
+  revalidatePath("/portal/billing");
 }
 
 export async function markOverdueInvoices() {
