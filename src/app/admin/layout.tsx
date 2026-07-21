@@ -7,5 +7,9 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const user = await requireAdmin();
-  return <AdminShell userName={user.name}>{children}</AdminShell>;
+  return (
+    <AdminShell userName={user.name} isAdmin={user.role === "ADMIN"}>
+      {children}
+    </AdminShell>
+  );
 }

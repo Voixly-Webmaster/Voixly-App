@@ -6,15 +6,29 @@ export const GOOGLE_INSIGHTS_SCOPES = [
   "email",
 ];
 
-export function googleRedirectUri(): string {
-  const base = process.env.APP_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3010";
+export async function googleRedirectUri(): Promise<string> {
+  const { getSetting } = await import("@/lib/settings");
+  const base =
+    (await getSetting("app.url")) ??
+    process.env.NEXTAUTH_URL ??
+    "http://localhost:3010";
   return `${base.replace(/\/$/, "")}/api/integrations/google/callback`;
 }
 
-export function isGoogleInsightsConfigured(): boolean {
-  return Boolean(
-    process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim()
-  );
+export async function getGoogleOAuthCredentials(): Promise<{
+  clientId: string;
+  clientSecret: string;
+} | null> {
+  const { getSettings } = await import("@/lib/settings");
+  const settings = await getSettings(["google.clientId", "google.clientSecret"]);
+  const clientId = settings["google.clientId"];
+  const clientSecret = settings["google.clientSecret"];
+  if (!clientId || !clientSecret) return null;
+  return { clientId, clientSecret };
+}
+
+export async function isGoogleInsightsConfigured(): Promise<boolean> {
+  return Boolean(await getGoogleOAuthCredentials());
 }
 
 export function encodeOAuthState(clientId: string): string {

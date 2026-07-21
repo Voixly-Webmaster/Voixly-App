@@ -20,6 +20,13 @@ export async function requireAdmin(): Promise<SessionUser> {
   return user;
 }
 
+/** Requires the ADMIN role specifically (staff are not allowed). */
+export async function requireAdminRole(): Promise<SessionUser> {
+  const user = await requireAuth();
+  if (user.role !== UserRole.ADMIN) redirect("/admin");
+  return user;
+}
+
 export async function requireClient(): Promise<SessionUser> {
   const user = await requireAuth();
   if (!canAccessClientPortal(user)) redirect("/admin");

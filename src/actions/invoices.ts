@@ -86,7 +86,7 @@ export async function createCheckoutSession(invoiceId: string) {
 
   let stripeCustomerId = invoice.client.stripeCustomerId;
   if (!stripeCustomerId) {
-    const customer = await getStripe().customers.create({
+    const customer = await (await getStripe()).customers.create({
       email: user.email,
       name: invoice.client.companyName,
       metadata: { clientId: invoice.clientId },
@@ -100,7 +100,7 @@ export async function createCheckoutSession(invoiceId: string) {
 
   const appUrl = process.env.APP_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3010";
 
-  const session = await getStripe().checkout.sessions.create({
+  const session = await (await getStripe()).checkout.sessions.create({
     customer: stripeCustomerId,
     mode: "payment",
     payment_method_types: ["card"],

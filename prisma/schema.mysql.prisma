@@ -414,6 +414,14 @@ model ActivityLog {
   @@map("activity_logs")
 }
 
+model AppSetting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+
+  @@map("app_settings")
+}
+
 model ClientGoogleIntegration {
   id                 String    @id @default(cuid())
   clientId           String    @unique

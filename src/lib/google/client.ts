@@ -3,23 +3,26 @@ import { prisma } from "@/lib/db";
 import {
   GOOGLE_INSIGHTS_SCOPES,
   googleRedirectUri,
-  isGoogleInsightsConfigured,
+  getGoogleOAuthCredentials,
   encodeOAuthState,
 } from "@/lib/google/config";
 
-export function createOAuth2Client() {
-  if (!isGoogleInsightsConfigured()) {
-    throw new Error("Google OAuth is not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env");
+export async function createOAuth2Client() {
+  const credentials = await getGoogleOAuthCredentials();
+  if (!credentials) {
+    throw new Error(
+      "Google OAuth is not configured. Add credentials in Admin → Settings → Integrations."
+    );
   }
   return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    googleRedirectUri()
+    credentials.clientId,
+    credentials.clientSecret,
+    await googleRedirectUri()
   );
 }
 
-export function getGoogleAuthUrl(clientId: string): string {
-  const oauth2 = createOAuth2Client();
+export async function getGoogleAuthUrl(clientId: string): Promise<string> {
+  const oauth2 = await createOAuth2Client();
   return oauth2.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
@@ -29,7 +32,7 @@ export function getGoogleAuthUrl(clientId: string): string {
 }
 
 export async function exchangeCodeForTokens(code: string) {
-  const oauth2 = createOAuth2Client();
+  const oauth2 = await createOAuth2Client();
   const { tokens } = await oauth2.getToken(code);
   if (!tokens.refresh_token && !tokens.access_token) {
     throw new Error("Google did not return tokens. Try disconnecting and reconnecting.");
@@ -58,7 +61,7 @@ type IntegrationRecord = {
 
 /** Returns an OAuth2 client with a valid access token, persisting refreshes. */
 export async function getAuthenticatedClient(integration: IntegrationRecord) {
-  const oauth2 = createOAuth2Client();
+  const oauth2 = await createOAuth2Client();
   oauth2.setCredentials({
     refresh_token: integration.refreshToken,
     access_token: integration.accessToken ?? undefined,

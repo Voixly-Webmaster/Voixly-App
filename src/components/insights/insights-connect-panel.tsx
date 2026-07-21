@@ -5,7 +5,7 @@ import { isGoogleInsightsConfigured } from "@/lib/google/config";
 import { BarChart3, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
-export function InsightsConnectPanel({
+export async function InsightsConnectPanel({
   clientId,
   connected,
   googleEmail,
@@ -18,7 +18,7 @@ export function InsightsConnectPanel({
   error?: string | null;
   connectedFlash?: boolean;
 }) {
-  const configured = isGoogleInsightsConfigured();
+  const configured = await isGoogleInsightsConfigured();
 
   return (
     <Panel
@@ -35,10 +35,11 @@ export function InsightsConnectPanel({
 
       {error === "not_configured" && (
         <AlertBanner variant="warning" className="mb-4">
-          Google OAuth is not configured. Add{" "}
-          <code className="text-xs">GOOGLE_CLIENT_ID</code> and{" "}
-          <code className="text-xs">GOOGLE_CLIENT_SECRET</code> to your{" "}
-          <code className="text-xs">.env</code> file (see README).
+          Google OAuth is not configured. Add your Google client ID and secret in{" "}
+          <Link href="/admin/settings/integrations" className="font-medium underline">
+            Settings → Integrations
+          </Link>
+          .
         </AlertBanner>
       )}
 
@@ -73,7 +74,12 @@ export function InsightsConnectPanel({
             <li>Enable <strong>Google Analytics Data API</strong>, <strong>Google Analytics Admin API</strong>, and <strong>Search Console API</strong></li>
             <li>Create an OAuth 2.0 Web client</li>
             <li>Add redirect URI: <code className="text-xs">{process.env.APP_URL ?? "http://localhost:3010"}/api/integrations/google/callback</code></li>
-            <li>Set <code className="text-xs">GOOGLE_CLIENT_ID</code> and <code className="text-xs">GOOGLE_CLIENT_SECRET</code> in <code className="text-xs">.env</code></li>
+            <li>
+              Paste the client ID and secret in{" "}
+              <Link href="/admin/settings/integrations" className="font-medium text-primary hover:underline">
+                Settings → Integrations
+              </Link>
+            </li>
           </ol>
         </div>
       ) : connected ? (

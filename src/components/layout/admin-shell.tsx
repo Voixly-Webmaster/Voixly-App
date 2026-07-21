@@ -9,6 +9,7 @@ import {
   Upload,
   Megaphone,
   Activity,
+  Settings,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 
@@ -26,13 +27,19 @@ const navItems = [
 export function AdminShell({
   children,
   userName,
+  isAdmin = false,
 }: {
   children: React.ReactNode;
   userName?: string | null;
+  isAdmin?: boolean;
 }) {
+  const items = isAdmin
+    ? [...navItems, { href: "/admin/settings", label: "Settings", icon: Settings }]
+    : navItems;
+
   return (
     <AppShell
-      navItems={navItems}
+      navItems={items}
       title="ClientHub"
       subtitle="Operations"
       userName={userName}

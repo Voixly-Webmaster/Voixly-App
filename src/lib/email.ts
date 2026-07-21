@@ -1,21 +1,21 @@
 import { Resend } from "resend";
-
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
-
-const from = process.env.RESEND_FROM_EMAIL ?? "ClientHub <onboarding@resend.dev>";
+import { getSettings } from "@/lib/settings";
 
 export async function sendEmail(params: {
   to: string | string[];
   subject: string;
   html: string;
 }) {
-  if (!resend) {
+  const settings = await getSettings(["resend.apiKey", "resend.fromEmail"]);
+  const apiKey = settings["resend.apiKey"];
+  const from = settings["resend.fromEmail"] ?? "ClientHub <onboarding@resend.dev>";
+
+  if (!apiKey) {
     console.info("[email:dev]", params.subject, "→", params.to);
     return { ok: true as const, dev: true };
   }
 
+  const resend = new Resend(apiKey);
   const { error } = await resend.emails.send({
     from,
     to: params.to,

@@ -106,10 +106,24 @@ If a change would ever delete data (e.g. removing a column that has values), Pri
 | Staff  | staff@voixly.com   | password123  |
 | Client | client@acme.com    | password123  |
 
+## Admin settings
+
+Admins (not staff) get a **Settings** section at `/admin/settings`:
+
+- **General** — app name, public URL, support email
+- **Users** — create admin/staff/client accounts, change roles, reset passwords, deactivate/reactivate
+- **Payments** — Stripe API keys and webhook secret
+- **Email** — Resend API key and from address
+- **Integrations** — Google OAuth credentials for the Insights tab
+
+Values saved here live in the database (secrets encrypted with a key derived
+from `AUTH_SECRET`) and override the matching `.env` variables. Anything not
+set in the UI falls back to `.env`, so either place works.
+
 ## Stripe webhooks (local)
 
 ```bash
-stripe listen --forward-to localhost:3001/api/webhooks/stripe
+stripe listen --forward-to localhost:3010/api/webhooks/stripe
 ```
 
 Copy the webhook signing secret into `STRIPE_WEBHOOK_SECRET`.

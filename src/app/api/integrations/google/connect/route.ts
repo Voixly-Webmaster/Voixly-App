@@ -18,7 +18,7 @@ export async function GET(req: Request) {
 
     await assertClientAccess(user, clientId);
 
-    if (!isGoogleInsightsConfigured()) {
+    if (!(await isGoogleInsightsConfigured())) {
       return NextResponse.redirect(
         new URL(
           `/admin/clients/${clientId}/insights?error=not_configured`,
@@ -27,7 +27,7 @@ export async function GET(req: Request) {
       );
     }
 
-    const url = getGoogleAuthUrl(clientId);
+    const url = await getGoogleAuthUrl(clientId);
     return NextResponse.redirect(url);
   } catch {
     return NextResponse.redirect(new URL("/login", req.url));
