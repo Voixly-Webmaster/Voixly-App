@@ -63,8 +63,7 @@ export default async function LoginPage({
           >
             {params.error === "credentials" && (
               <p className="mb-4 rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                Invalid email or password. Use admin@voixly.com / password123 after
-                running <code className="text-xs">npm run db:seed</code>.
+                Invalid email or password.
               </p>
             )}
             {params.error === "server" && (
@@ -121,9 +120,11 @@ export default async function LoginPage({
                 Sign in
               </Button>
             </form>
-            <p className="mt-6 text-center text-xs text-muted-foreground">
-              Demo: admin@voixly.com / client@acme.com — password: password123
-            </p>
+            {process.env.NODE_ENV !== "production" ? (
+              <p className="mt-6 text-center text-xs text-muted-foreground">
+                Demo: admin@voixly.com / client@acme.com — password: password123
+              </p>
+            ) : null}
           </Panel>
         </div>
       </div>

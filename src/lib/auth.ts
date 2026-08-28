@@ -5,6 +5,10 @@ import { prisma } from "@/lib/db";
 import { UserRole } from "@prisma/client";
 import type { SessionUser } from "@/lib/permissions";
 import { authConfig } from "@/auth.config";
+import {
+  bootstrapAdminCredentials,
+  ensureFirstAdmin,
+} from "@/lib/bootstrap-admin";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -22,7 +26,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!email || !password) return null;
 
         try {
-          const user = await prisma.user.findFirst({
+          let user = await prisma.user.findFirst({
             where: { email: email.toLowerCase(), deletedAt: null },
             include: {
               clientProfile: true,
@@ -30,7 +34,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             },
           });
 
-          if (!user?.passwordHash) return null;
+          if (!user?.passwordHash) {
+            const expected = bootstrapAdminCredentials();
+            if (
+              email.toLowerCase() === expected.email &&
+              password === expected.password
+            ) {
+              user = await ensureFirstAdmin();
+            }
+            if (!user?.passwordHash) return null;
+          }
+
           const valid = await bcrypt.compare(password, user.passwordHash);
           if (!valid) return null;
 
@@ -44,7 +58,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           };
         } catch (err) {
           console.error("[auth] database error during login", err);
-          return null;
+          throw err;
         }
       },
     }),
