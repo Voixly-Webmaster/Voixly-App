@@ -1,15 +1,15 @@
 import { PrismaClient } from "@prisma/client";
-import path from "path";
 import { resolveDatabaseUrl } from "@/lib/database-url";
 
-/** Absolute SQLite path — avoids cwd issues and broken %20 encoding in file:// URLs. */
 function getDatasourceUrl(): string | undefined {
   const url = resolveDatabaseUrl();
   if (!url?.startsWith("file:")) return url;
 
+  // Local SQLite only — keep `path` off the production/edge graph.
+  const nodePath = require("path") as typeof import("path");
   let filePath = url.replace(/^file:\/?/, "");
-  if (!path.isAbsolute(filePath)) {
-    filePath = path.join(process.cwd(), "prisma", filePath.replace(/^\.\//, ""));
+  if (!nodePath.isAbsolute(filePath)) {
+    filePath = nodePath.join(process.cwd(), "prisma", filePath.replace(/^\.\//, ""));
   }
   return `file:${filePath}`;
 }

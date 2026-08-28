@@ -1,3 +1,4 @@
+import "server-only";
 import { existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 import path from "node:path";
