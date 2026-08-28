@@ -1,15 +1,19 @@
 import { PrismaClient } from "@prisma/client";
 import { resolveDatabaseUrl } from "@/lib/database-url";
 
+function isAbsolutePath(filePath: string): boolean {
+  return filePath.startsWith("/") || /^[A-Za-z]:[\\/]/.test(filePath);
+}
+
 function getDatasourceUrl(): string | undefined {
   const url = resolveDatabaseUrl();
   if (!url?.startsWith("file:")) return url;
 
-  // Local SQLite only — keep `path` off the production/edge graph.
-  const nodePath = require("path") as typeof import("path");
+  // Local SQLite only — avoid importing `path` so webpack/edge never see it.
   let filePath = url.replace(/^file:\/?/, "");
-  if (!nodePath.isAbsolute(filePath)) {
-    filePath = nodePath.join(process.cwd(), "prisma", filePath.replace(/^\.\//, ""));
+  if (!isAbsolutePath(filePath)) {
+    const cwd = process.cwd().replace(/[/\\]+$/, "");
+    filePath = `${cwd}/prisma/${filePath.replace(/^\.\//, "")}`;
   }
   return `file:${filePath}`;
 }

@@ -33,7 +33,7 @@ export function resolveDatabaseUrl(
     );
   }
 
-  let url = strip(env.DATABASE_URL);
+  const url = strip(env.DATABASE_URL);
   if (!url) return undefined;
   if (!url.startsWith("mysql://") && !url.startsWith("mysqls://")) return url;
 
