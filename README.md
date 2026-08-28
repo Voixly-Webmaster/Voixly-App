@@ -94,6 +94,20 @@ There is no Next.js 22 — Hostinger’s default runtime is **Node.js 22**, whic
 
 You can also paste Stripe / Resend / Google keys later in **Admin → Settings**. Values in Settings override `.env`.
 
+### If deploy fails with `P1000` (MySQL authentication)
+
+The app reached MySQL; the password was rejected.
+
+1. In hPanel → **Databases**, reset/copy the password for user `u935498615_34982458_4645` (this is not your Hostinger account password).
+2. Confirm that user is attached to database `u935498615_34982458_4678`.
+3. Set `DATABASE_URL` with **no quotes**:
+
+```
+mysql://u935498615_34982458_4645:THE_PASSWORD@localhost:3306/u935498615_34982458_4678
+```
+
+4. Save env vars (Hostinger redeploys automatically).
+
 ## Deploying to production (MySQL)
 
 The app uses two Prisma schemas:

@@ -1,5 +1,8 @@
 import { execSync } from "node:child_process";
 import { prismaSchemaPath } from "./prisma-schema.mjs";
+import { applyNormalizedDatabaseUrl } from "./normalize-database-url.mjs";
+
+applyNormalizedDatabaseUrl();
 
 const schema = prismaSchemaPath();
 console.log(`[prisma] generate — ${schema}`);
