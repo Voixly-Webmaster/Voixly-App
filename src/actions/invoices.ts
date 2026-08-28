@@ -82,6 +82,16 @@ export async function createInvoice(formData: FormData) {
         amountCents,
       },
     });
+
+    const { sendInvoiceCreatedEmail } = await import("@/lib/email");
+    await sendInvoiceCreatedEmail({
+      clientId,
+      invoiceNumber,
+      title: trimmedTitle,
+      amountCents,
+      dueDate: dueDate ? new Date(dueDate) : null,
+      recurring: true,
+    });
   } else {
     const invoice = await prisma.invoice.create({
       data: {
@@ -102,6 +112,15 @@ export async function createInvoice(formData: FormData) {
       action: "invoice.created",
       entityType: "invoice",
       entityId: invoice.id,
+    });
+
+    const { sendInvoiceCreatedEmail } = await import("@/lib/email");
+    await sendInvoiceCreatedEmail({
+      clientId,
+      invoiceNumber,
+      title: trimmedTitle,
+      amountCents,
+      dueDate: dueDate ? new Date(dueDate) : null,
     });
 
     // If the client has monthly Autopay on, charge their saved card now
@@ -156,8 +175,8 @@ export async function createCheckoutSession(invoiceId: string) {
     });
   }
 
-  const appUrl =
-    process.env.APP_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3010";
+  const { getAppUrl } = await import("@/lib/app-url");
+  const appUrl = await getAppUrl();
   const stripe = await getStripe();
 
   const productName = recurring

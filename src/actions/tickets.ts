@@ -93,7 +93,8 @@ export async function replyToTicket(ticketId: string, formData: FormData) {
     });
   }
 
-  const appUrl = process.env.APP_URL ?? "http://localhost:3010";
+  const { getAppUrl } = await import("@/lib/app-url");
+  const appUrl = await getAppUrl();
   const ticketUrl = isStaff
     ? `${appUrl}/portal/support/${ticketId}`
     : `${appUrl}/admin/tickets/${ticketId}`;

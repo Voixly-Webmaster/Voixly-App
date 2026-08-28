@@ -4,11 +4,11 @@ Premium client portal and internal operations hub for Voixly — billing, suppor
 
 ## Stack
 
-- **Next.js 15** (App Router)
+- **Next.js 15** (App Router) on **Node.js 22** (Hostinger default)
 - **Prisma ORM** — SQLite locally, **MySQL** in production
 - **Auth.js** (NextAuth v5) — credentials login
 - **Stripe** — Checkout + webhooks
-- **Resend** — transactional email
+- **Resend** — invoices and ticket notifications
 - **Tailwind CSS v4** + **shadcn-style** UI components
 
 ## Brand
@@ -48,6 +48,51 @@ npm run dev
 ```
 
 Open [http://localhost:3010](http://localhost:3010)
+
+## Deploy on Hostinger (Node.js 22 + MySQL + Resend)
+
+There is no Next.js 22 — Hostinger’s default runtime is **Node.js 22**, which this app targets.
+
+1. In hPanel: **Websites → Add Website → Node.js web app → Import Git repository**  
+   Repo: `Voixly-Webmaster/Voixly-App`, branch `main`.
+2. Confirm settings:
+   - Application type: **next**
+   - Node.js version: **22**
+   - Build command: **build**
+   - Output directory: **`.next`**
+3. Add environment variables (see table below) **before** the first deploy.  
+   Hostinger injects them at both build and runtime.
+4. Deploy. The `build` script generates the MySQL Prisma client, pushes schema (never drops rows), creates the first admin if the DB is empty, then runs `next build`.
+5. In [Resend](https://resend.com): verify `voixly.com`, then paste `RESEND_API_KEY` and `RESEND_FROM_EMAIL`. After login, **Settings → Email → Send test email**.
+6. Stripe webhook URL: `https://app.voixly.com/api/webhooks/stripe`  
+   Events: `checkout.session.completed`, `checkout.session.expired`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`.
+7. Optional daily Autopay sweep: `GET https://app.voixly.com/api/cron/autopay` with `Authorization: Bearer CRON_SECRET`.
+
+### Hostinger environment variables
+
+| Variable | Required | Example / notes |
+|----------|----------|-----------------|
+| `NODE_ENV` | Yes | `production` |
+| `DATABASE_URL` | Yes | `mysql://USER:PASSWORD@HOST:3306/DATABASE` from hPanel → Databases. Must be set **before** the first build. |
+| `AUTH_SECRET` | Yes | Long random string (e.g. `openssl rand -base64 32`) |
+| `NEXTAUTH_SECRET` | Yes | Same value as `AUTH_SECRET` |
+| `AUTH_URL` | Yes | `https://app.voixly.com` (no trailing slash) |
+| `NEXTAUTH_URL` | Yes | `https://app.voixly.com` |
+| `APP_URL` | Yes | `https://app.voixly.com` — emails and Stripe redirects |
+| `BOOTSTRAP_ADMIN_EMAIL` | First deploy | Your login email. Only used when the users table is empty. |
+| `BOOTSTRAP_ADMIN_PASSWORD` | First deploy | At least 8 characters |
+| `BOOTSTRAP_ADMIN_NAME` | Optional | Defaults to `Admin` |
+| `RESEND_API_KEY` | For email | `re_...` from resend.com |
+| `RESEND_FROM_EMAIL` | For email | `Voixly <notifications@your-verified-domain.com>` |
+| `STRIPE_SECRET_KEY` | For payments | `sk_live_...` (or set later in Settings → Payments) |
+| `STRIPE_PUBLISHABLE_KEY` | For payments | `pk_live_...` |
+| `STRIPE_WEBHOOK_SECRET` | For payments | `whsec_...` from the Stripe webhook |
+| `GOOGLE_CLIENT_ID` | For Insights | Or set later in Settings → Integrations |
+| `GOOGLE_CLIENT_SECRET` | For Insights | Or set later in Settings → Integrations |
+| `UPLOAD_DIR` | Optional | Defaults to `storage/uploads` (redeploys can wipe files — keep this if Hostinger gives you a persistent path) |
+| `CRON_SECRET` | Optional | Protects `/api/cron/autopay` |
+
+You can also paste Stripe / Resend / Google keys later in **Admin → Settings**. Values in Settings override `.env`.
 
 ## Deploying to production (MySQL)
 

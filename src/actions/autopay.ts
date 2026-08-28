@@ -6,7 +6,6 @@ import { requireClient } from "@/lib/session-guard";
 import { getStripe } from "@/lib/stripe";
 import { ensureStripeCustomer } from "@/lib/autopay";
 import { logActivity } from "@/lib/activity";
-import { getSetting } from "@/lib/settings";
 
 /** Start Stripe Checkout (setup mode) so the client can save a card for monthly autopay. */
 export async function createAutopaySetupSession() {
@@ -23,11 +22,8 @@ export async function createAutopaySetupSession() {
     existingCustomerId: client.stripeCustomerId,
   });
 
-  const appUrl =
-    (await getSetting("app.url")) ??
-    process.env.APP_URL ??
-    process.env.NEXTAUTH_URL ??
-    "http://localhost:3010";
+  const { getAppUrl } = await import("@/lib/app-url");
+  const appUrl = await getAppUrl();
 
   const stripe = await getStripe();
   const session = await stripe.checkout.sessions.create({

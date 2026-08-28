@@ -5,6 +5,7 @@ import { SettingField } from "@/components/settings/setting-field";
 import { saveSettings } from "@/actions/settings";
 import { getSettingsStatus, type SettingKey } from "@/lib/settings";
 import { Mail } from "lucide-react";
+import { TestEmailButton } from "@/components/settings/test-email-button";
 
 const KEYS: SettingKey[] = ["resend.apiKey", "resend.fromEmail"];
 
@@ -37,6 +38,11 @@ export default async function EmailSettingsPage() {
           hint="Must be a verified domain in Resend."
         />
       </SettingsForm>
+      {apiKey.isSet && (
+        <div className="mt-6 border-t border-border/60 pt-5">
+          <TestEmailButton />
+        </div>
+      )}
     </FormPanel>
   );
 }

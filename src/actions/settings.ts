@@ -39,3 +39,25 @@ export async function saveSettings(keys: SettingKey[], formData: FormData) {
 
   revalidatePath("/admin/settings", "layout");
 }
+
+export async function sendTestEmail() {
+  const admin = await requireAdminRole();
+  const { sendEmail } = await import("@/lib/email");
+  const result = await sendEmail({
+    to: admin.email,
+    subject: "Voixly test email",
+    html: `<p>Resend is connected. This test was sent to ${admin.email}.</p>`,
+  });
+  if ("dev" in result && result.dev) {
+    throw new Error("Resend API key is not set — add it above or in RESEND_API_KEY.");
+  }
+  if (!result.ok) {
+    throw new Error("Resend rejected the message. Check the from address and domain.");
+  }
+
+  await logActivity({
+    actorId: admin.id,
+    action: "settings.test_email",
+    entityType: "settings",
+  });
+}

@@ -2,22 +2,25 @@
   "name": "clienthub",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20 <=24"
+  },
   "scripts": {
     "dev": "next dev --turbopack -p 3010",
     "dev:clean": "rm -rf .next && next dev --turbopack -p 3010",
-    "build": "next build",
-    "start": "next start",
+    "build": "node scripts/build.mjs",
+    "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "lint": "next lint",
-    "db:generate": "prisma generate",
+    "db:generate": "node scripts/prisma-generate.mjs",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:setup": "prisma db push && tsx prisma/seed.ts",
     "db:generate:prod": "prisma generate --schema prisma/schema.mysql.prisma",
     "db:deploy": "prisma db push --schema prisma/schema.mysql.prisma",
-    "build:prod": "prisma generate --schema prisma/schema.mysql.prisma && next build",
+    "build:prod": "node scripts/build.mjs",
     "docker:up": "docker compose up -d",
     "db:studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "postinstall": "node scripts/prisma-generate.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.9.1",
