@@ -51,6 +51,46 @@ export function resolveDatabaseUrl(env = process.env) {
   return `${proto}${urlUser}:${pass}@${urlHost}${urlPort ? `:${urlPort}` : ""}/${urlDb}${query}`;
 }
 
+export function parseMysqlParts(env = process.env) {
+  const user = strip(env.MYSQL_USER);
+  const password = strip(env.MYSQL_PASSWORD);
+  const database = strip(env.MYSQL_DATABASE);
+  if (user && password && database) {
+    return {
+      user,
+      password,
+      database,
+      host: strip(env.MYSQL_HOST) || "localhost",
+      port: Number(strip(env.MYSQL_PORT) || "3306"),
+    };
+  }
+
+  const url = resolveDatabaseUrl(env);
+  const match = url?.match(
+    /^(mysqls?:\/\/)([^:/]+):(.+)@([^:/]+)(?::(\d+))?\/([^?]+)/
+  );
+  if (!match) return null;
+
+  let passwordDecoded = match[3];
+  try {
+    passwordDecoded = decodeURIComponent(match[3]);
+  } catch {
+    /* keep */
+  }
+  return {
+    user: decodeURIComponent(match[2]),
+    password: passwordDecoded,
+    host: match[4],
+    port: Number(match[5] || "3306"),
+    database: match[6],
+  };
+}
+
+export function mysqlUrlFromParts(parts, extraQuery = "") {
+  const q = extraQuery ? (extraQuery.startsWith("?") ? extraQuery : `?${extraQuery}`) : "";
+  return `mysql://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${parts.port}/${parts.database}${q}`;
+}
+
 export function applyNormalizedDatabaseUrl() {
   const next = resolveDatabaseUrl();
   if (!next) return next;

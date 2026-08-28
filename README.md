@@ -74,7 +74,7 @@ There is no Next.js 22 — Hostinger’s default runtime is **Node.js 22**, whic
 |----------|----------|-----------------|
 | `NODE_ENV` | Yes | `production` |
 | `DATABASE_URL` | One of | Full URL **or** the `MYSQL_*` fields below (easier on Hostinger) |
-| `MYSQL_HOST` | Recommended | `localhost` |
+| `MYSQL_HOST` | Recommended | Copy **Hostname** from hPanel → Databases. Often `localhost`, `127.0.0.1`, or `srvXXXX.hstgr.io` |
 | `MYSQL_PORT` | Optional | `3306` |
 | `MYSQL_USER` | Recommended | `u935498615_34982458_4645` |
 | `MYSQL_PASSWORD` | Recommended | The **database user** password from hPanel → Databases (reset it if unsure) |
@@ -114,8 +114,9 @@ The app reached MySQL; the password was rejected. Prefer **separate fields** ins
 | `MYSQL_PASSWORD` | the new password you just set |
 | `MYSQL_DATABASE` | `u935498615_34982458_4678` |
 
-4. You can leave `DATABASE_URL` blank, or delete it so it does not override a bad URL.
-5. Save — Hostinger redeploys.
+4. Delete `DATABASE_URL` if it is still set (a bad URL overrides everything).
+5. If it still fails: copy **Hostname** from Databases into `MYSQL_HOST` (try `127.0.0.1` or `srvXXXX.hstgr.io`, not only `localhost`). Use a password with **only letters and numbers** — Hostinger strips `$` in env vars.
+6. Save — Hostinger redeploys. The Next.js build now finishes even if schema sync fails; check build logs for `MySQL connected via` or the real MySQL error (`user@127.0.0.1` vs `user@localhost`).
 
 ## Deploying to production (MySQL)
 
