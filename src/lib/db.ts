@@ -1,9 +1,10 @@
 import { PrismaClient } from "@prisma/client";
 import path from "path";
+import { resolveDatabaseUrl } from "@/lib/database-url";
 
 /** Absolute SQLite path — avoids cwd issues and broken %20 encoding in file:// URLs. */
 function getDatasourceUrl(): string | undefined {
-  const url = process.env.DATABASE_URL;
+  const url = resolveDatabaseUrl();
   if (!url?.startsWith("file:")) return url;
 
   let filePath = url.replace(/^file:\/?/, "");

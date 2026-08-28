@@ -1,7 +1,8 @@
 import type { NextAuthConfig } from "next-auth";
+import { authSecret } from "@/lib/database-url";
 
 export const authConfig = {
-  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+  secret: authSecret(),
   // Hostinger (and most reverse proxies) terminate TLS; trust the forwarded host.
   trustHost: true,
   pages: { signIn: "/login" },

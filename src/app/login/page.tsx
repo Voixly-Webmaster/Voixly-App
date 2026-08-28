@@ -69,9 +69,10 @@ export default async function LoginPage({
             )}
             {params.error === "server" && (
               <p className="mb-4 rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                Could not reach the database. In the project folder run{" "}
-                <code className="text-xs">npm run db:setup</code>, then restart{" "}
-                <code className="text-xs">npm run dev</code>.
+                Could not reach MySQL. Check{" "}
+                <code className="text-xs">DATABASE_URL</code> uses{" "}
+                <code className="text-xs">127.0.0.1</code> and the database user
+                password, then open <code className="text-xs">/api/health</code>.
               </p>
             )}
             <form
