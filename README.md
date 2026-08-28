@@ -73,7 +73,12 @@ There is no Next.js 22 — Hostinger’s default runtime is **Node.js 22**, whic
 | Variable | Required | Example / notes |
 |----------|----------|-----------------|
 | `NODE_ENV` | Yes | `production` |
-| `DATABASE_URL` | Yes | `mysql://USER:PASSWORD@HOST:3306/DATABASE` from hPanel → Databases. Must be set **before** the first build. |
+| `DATABASE_URL` | One of | Full URL **or** the `MYSQL_*` fields below (easier on Hostinger) |
+| `MYSQL_HOST` | Recommended | `localhost` |
+| `MYSQL_PORT` | Optional | `3306` |
+| `MYSQL_USER` | Recommended | `u935498615_34982458_4645` |
+| `MYSQL_PASSWORD` | Recommended | The **database user** password from hPanel → Databases (reset it if unsure) |
+| `MYSQL_DATABASE` | Recommended | `u935498615_34982458_4678` |
 | `AUTH_SECRET` | Yes | Long random string (e.g. `openssl rand -base64 32`) |
 | `NEXTAUTH_SECRET` | Yes | Same value as `AUTH_SECRET` |
 | `AUTH_URL` | Yes | `https://app.voixly.com` (no trailing slash) |
@@ -96,17 +101,21 @@ You can also paste Stripe / Resend / Google keys later in **Admin → Settings**
 
 ### If deploy fails with `P1000` (MySQL authentication)
 
-The app reached MySQL; the password was rejected.
+The app reached MySQL; the password was rejected. Prefer **separate fields** instead of one URL:
 
-1. In hPanel → **Databases**, reset/copy the password for user `u935498615_34982458_4645` (this is not your Hostinger account password).
-2. Confirm that user is attached to database `u935498615_34982458_4678`.
-3. Set `DATABASE_URL` with **no quotes**:
+1. hPanel → **Databases** → user `u935498615_34982458_4645` → **Change password**. Copy the new password.
+2. Confirm that user is assigned to `u935498615_34982458_4678`.
+3. In Environment variables, set (no quotes):
 
-```
-mysql://u935498615_34982458_4645:THE_PASSWORD@localhost:3306/u935498615_34982458_4678
-```
+| Key | Value |
+|-----|--------|
+| `MYSQL_HOST` | `localhost` |
+| `MYSQL_USER` | `u935498615_34982458_4645` |
+| `MYSQL_PASSWORD` | the new password you just set |
+| `MYSQL_DATABASE` | `u935498615_34982458_4678` |
 
-4. Save env vars (Hostinger redeploys automatically).
+4. You can leave `DATABASE_URL` blank, or delete it so it does not override a bad URL.
+5. Save — Hostinger redeploys.
 
 ## Deploying to production (MySQL)
 
