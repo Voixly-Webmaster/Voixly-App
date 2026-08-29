@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/shared/panel";
 
@@ -20,7 +21,7 @@ export default function ErrorPage({
         <div className="flex gap-3">
           <Button onClick={reset}>Try again</Button>
           <Button variant="outline" asChild>
-            <a href="/">Go home</a>
+            <Link href="/">Go home</Link>
           </Button>
         </div>
       </Panel>
