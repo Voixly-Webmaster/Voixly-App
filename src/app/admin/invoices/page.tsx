@@ -74,7 +74,7 @@ export default async function AdminInvoicesPage({
       : {}),
   };
 
-  const [total, invoices, recurring] = await Promise.all([
+  const [total, invoices, recurring, products] = await Promise.all([
     prisma.invoice.count({ where }),
     prisma.invoice.findMany({
       where,
@@ -93,6 +93,17 @@ export default async function AdminInvoicesPage({
       },
       include: { client: true },
       orderBy: { createdAt: "desc" },
+    }),
+    prisma.product.findMany({
+      where: { active: true, deletedAt: null },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        amountCents: true,
+        interval: true,
+      },
     }),
   ]);
 
@@ -120,7 +131,7 @@ export default async function AdminInvoicesPage({
           description="Bill once, or set up a recurring Stripe subscription"
           icon={FileText}
         >
-          <CreateInvoiceForm clients={clients} />
+          <CreateInvoiceForm clients={clients} products={products} />
         </FormPanel>
       )}
 

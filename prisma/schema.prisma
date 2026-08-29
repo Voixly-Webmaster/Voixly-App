@@ -63,6 +63,13 @@ enum RecurringStatus {
   CANCELLED
 }
 
+enum ClientTier {
+  PLATINUM
+  GOLD
+  SILVER
+  BRONZE
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -147,6 +154,7 @@ model Client {
   autopayEnabledAt DateTime?
   balanceCents    Int       @default(0)
   notes           String?
+  tier            ClientTier?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
@@ -165,6 +173,7 @@ model Client {
   googleIntegration ClientGoogleIntegration?
 
   @@index([companyName])
+  @@index([tier])
   @@index([deletedAt])
   @@map("clients")
 }
@@ -197,9 +206,29 @@ model StaffClientAssignment {
   @@map("staff_client_assignments")
 }
 
+model Product {
+  id          String          @id @default(cuid())
+  slug        String          @unique
+  name        String
+  description String?
+  amountCents Int
+  interval    BillingInterval @default(MONTHLY)
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
+
+  recurringInvoices RecurringInvoice[]
+
+  @@index([active])
+  @@index([deletedAt])
+  @@map("products")
+}
+
 model RecurringInvoice {
   id                   String          @id @default(cuid())
   clientId             String
+  productId            String?
   title                String
   description          String?
   amountCents          Int
@@ -214,9 +243,11 @@ model RecurringInvoice {
   updatedAt            DateTime        @updatedAt
 
   client   Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  product  Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
   invoices Invoice[]
 
   @@index([clientId])
+  @@index([productId])
   @@index([status])
   @@map("recurring_invoices")
 }

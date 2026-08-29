@@ -30,6 +30,7 @@ export async function createInvoice(formData: FormData) {
   const description = (formData.get("description") as string) || undefined;
   const recurring = formData.get("recurring") === "on";
   const interval = parseBillingInterval(formData.get("interval"));
+  const productIdRaw = String(formData.get("productId") ?? "").trim();
 
   if (!clientId || !title?.trim() || isNaN(amount) || amount <= 0) {
     throw new Error("Client, title, and a positive amount are required");
@@ -39,6 +40,16 @@ export async function createInvoice(formData: FormData) {
   }
   await assertClientAccess(user, clientId);
 
+  let productId: string | null = null;
+  if (productIdRaw) {
+    const product = await prisma.product.findFirst({
+      where: { id: productIdRaw, active: true, deletedAt: null },
+      select: { id: true },
+    });
+    if (!product) throw new Error("Selected product is not available");
+    productId = product.id;
+  }
+
   const amountCents = Math.round(amount * 100);
   const trimmedTitle = title.trim();
   const invoiceNumber = await generateInvoiceNumber();
@@ -47,6 +58,7 @@ export async function createInvoice(formData: FormData) {
     const recurringInvoice = await prisma.recurringInvoice.create({
       data: {
         clientId,
+        productId,
         title: trimmedTitle,
         description,
         amountCents,

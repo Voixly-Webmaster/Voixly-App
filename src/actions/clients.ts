@@ -6,7 +6,19 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/session-guard";
 import { assertClientAccess } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity";
-import { UserRole } from "@prisma/client";
+import { ClientTier, UserRole } from "@prisma/client";
+
+function parseClientTier(value: unknown): ClientTier | null {
+  if (
+    value === "PLATINUM" ||
+    value === "GOLD" ||
+    value === "SILVER" ||
+    value === "BRONZE"
+  ) {
+    return value;
+  }
+  return null;
+}
 
 export async function createClient(formData: FormData) {
   const user = await requireAdmin();
@@ -17,6 +29,7 @@ export async function createClient(formData: FormData) {
   const companyName = (formData.get("companyName") as string)?.trim();
   const contactName = (formData.get("contactName") as string)?.trim() || null;
   const phone = (formData.get("phone") as string)?.trim() || null;
+  const tier = parseClientTier(formData.get("tier"));
 
   if (!email || !password || !companyName) {
     throw new Error("Email, password, and company name required");
@@ -31,7 +44,7 @@ export async function createClient(formData: FormData) {
       name: contactName ?? companyName,
       role: UserRole.CLIENT,
       clientProfile: {
-        create: { companyName, contactName, phone },
+        create: { companyName, contactName, phone, tier },
       },
     },
     include: { clientProfile: true },
@@ -71,10 +84,11 @@ export async function updateClientProfile(formData: FormData) {
   const contactName = (formData.get("contactName") as string)?.trim() || null;
   const phone = (formData.get("phone") as string)?.trim() || null;
   const address = (formData.get("address") as string)?.trim() || null;
+  const tier = parseClientTier(formData.get("tier"));
 
   await prisma.client.update({
     where: { id: clientId },
-    data: { companyName, contactName, phone, address },
+    data: { companyName, contactName, phone, address, tier },
   });
 
   await logActivity({
@@ -86,6 +100,7 @@ export async function updateClientProfile(formData: FormData) {
   });
 
   revalidatePath(`/admin/clients/${clientId}`);
+  revalidatePath("/admin/clients");
   revalidatePath("/portal/profile");
 }
 

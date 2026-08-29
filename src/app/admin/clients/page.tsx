@@ -8,7 +8,10 @@ import {
   DataTableRow,
 } from "@/components/shared/data-table";
 import { SearchInput } from "@/components/shared/search-input";
+import { FilterSelect } from "@/components/shared/filter-select";
 import { FormPanel } from "@/components/shared/form-panel";
+import { ClientTierBadge } from "@/components/shared/status-badge";
+import { selectClassName } from "@/lib/ui";
 import {
   Pagination,
   DEFAULT_PAGE_SIZE,
@@ -18,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/actions/clients";
-import { UserRole } from "@prisma/client";
+import { ClientTier, UserRole } from "@prisma/client";
 import { formatDate } from "@/lib/utils";
 import { EmptyState } from "@/components/shared/empty-state";
 import { UserPlus, Users } from "lucide-react";
@@ -26,16 +29,21 @@ import { UserPlus, Users } from "lucide-react";
 export default async function AdminClientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; tier?: string }>;
 }) {
   const user = await requireAdmin();
-  const { q, page: pageParam } = await searchParams;
+  const { q, page: pageParam, tier } = await searchParams;
   const page = parsePageParam(pageParam);
   const scope = await getStaffClientScope(user);
+  const tierFilter =
+    tier === "PLATINUM" || tier === "GOLD" || tier === "SILVER" || tier === "BRONZE"
+      ? (tier as ClientTier)
+      : undefined;
 
   const where = {
     deletedAt: null,
     ...(scope !== "all" ? { id: { in: scope.length ? scope : ["__none__"] } } : {}),
+    ...(tierFilter ? { tier: tierFilter } : {}),
     ...(q
       ? {
           OR: [
@@ -63,7 +71,22 @@ export default async function AdminClientsPage({
       <PageHeader
         title="Clients"
         description="Manage client accounts and profiles"
-        action={<SearchInput placeholder="Search clients..." />}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterSelect
+              paramName="tier"
+              placeholder="All tiers"
+              ariaLabel="Filter by tier"
+              options={[
+                { value: "PLATINUM", label: "Platinum" },
+                { value: "GOLD", label: "Gold" },
+                { value: "SILVER", label: "Silver" },
+                { value: "BRONZE", label: "Bronze" },
+              ]}
+            />
+            <SearchInput placeholder="Search clients..." />
+          </div>
+        }
       />
 
       {user.role === UserRole.STAFF && scope !== "all" && scope.length === 0 && (
@@ -109,6 +132,21 @@ export default async function AdminClientsPage({
                 required
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-client-tier">Tier</Label>
+              <select
+                id="new-client-tier"
+                name="tier"
+                className={selectClassName}
+                defaultValue=""
+              >
+                <option value="">None</option>
+                <option value="PLATINUM">Platinum</option>
+                <option value="GOLD">Gold</option>
+                <option value="SILVER">Silver</option>
+                <option value="BRONZE">Bronze</option>
+              </select>
+            </div>
             <div className="flex items-end sm:col-span-2 lg:col-span-1">
               <Button type="submit">Create client</Button>
             </div>
@@ -116,10 +154,13 @@ export default async function AdminClientsPage({
         </FormPanel>
       )}
 
-      <DataTable headers={["Company", "Contact", "Email", "Since", ""]}>
+      <DataTable headers={["Company", "Tier", "Contact", "Email", "Since", ""]}>
         {clients.map((c) => (
           <DataTableRow key={c.id}>
             <DataTableCell className="font-medium">{c.companyName}</DataTableCell>
+            <DataTableCell>
+              <ClientTierBadge tier={c.tier} />
+            </DataTableCell>
             <DataTableCell>{c.contactName ?? "—"}</DataTableCell>
             <DataTableCell>{c.user.email}</DataTableCell>
             <DataTableCell>{formatDate(c.createdAt)}</DataTableCell>
@@ -137,7 +178,7 @@ export default async function AdminClientsPage({
         pageSize={DEFAULT_PAGE_SIZE}
         totalItems={total}
         pathname="/admin/clients"
-        searchParams={{ q }}
+        searchParams={{ q, tier }}
       />
     </div>
   );

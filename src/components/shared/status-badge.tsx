@@ -39,3 +39,19 @@ export function InvoiceStatusBadge({ status }: { status: string }) {
   const cfg = invoiceStatusMap[status] ?? { label: status, variant: "secondary" as const };
   return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
 }
+
+const tierMap: Record<
+  string,
+  { label: string; variant: "default" | "secondary" | "success" | "warning" | "outline" }
+> = {
+  PLATINUM: { label: "Platinum", variant: "default" },
+  GOLD: { label: "Gold", variant: "warning" },
+  SILVER: { label: "Silver", variant: "secondary" },
+  BRONZE: { label: "Bronze", variant: "outline" },
+};
+
+export function ClientTierBadge({ tier }: { tier: string | null | undefined }) {
+  if (!tier) return null;
+  const cfg = tierMap[tier] ?? { label: tier, variant: "outline" as const };
+  return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
+}

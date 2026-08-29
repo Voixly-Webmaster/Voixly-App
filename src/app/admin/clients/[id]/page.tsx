@@ -16,7 +16,7 @@ import {
   unassignStaffFromClient,
 } from "@/actions/clients";
 import { formatDate, formatCurrency } from "@/lib/utils";
-import { InvoiceStatusBadge } from "@/components/shared/status-badge";
+import { InvoiceStatusBadge, ClientTierBadge } from "@/components/shared/status-badge";
 import { UserRole } from "@prisma/client";
 import { selectClassName } from "@/lib/ui";
 import { Building2, StickyNote, Receipt, Users } from "lucide-react";
@@ -66,9 +66,14 @@ export default async function AdminClientDetailPage({
       <PageHeader
         title={client.companyName}
         description={
-          client.autopayEnabled
-            ? `${client.user.email} · Monthly Autopay on (day ${client.autopayDay})`
-            : client.user.email
+          <span className="flex flex-wrap items-center gap-2">
+            <span>
+              {client.autopayEnabled
+                ? `${client.user.email} · Monthly Autopay on (day ${client.autopayDay})`
+                : client.user.email}
+            </span>
+            <ClientTierBadge tier={client.tier} />
+          </span>
         }
         action={
           <div className="flex gap-2">
@@ -101,6 +106,21 @@ export default async function AdminClientDetailPage({
             <div className="space-y-2">
               <Label>Address</Label>
               <Textarea name="address" defaultValue={client.address ?? ""} rows={2} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="client-tier">Tier</Label>
+              <select
+                id="client-tier"
+                name="tier"
+                className={selectClassName}
+                defaultValue={client.tier ?? ""}
+              >
+                <option value="">None</option>
+                <option value="PLATINUM">Platinum</option>
+                <option value="GOLD">Gold</option>
+                <option value="SILVER">Silver</option>
+                <option value="BRONZE">Bronze</option>
+              </select>
             </div>
             <Button type="submit">Save</Button>
           </form>

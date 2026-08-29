@@ -7,15 +7,58 @@ import { Button } from "@/components/ui/button";
 import { selectClassName } from "@/lib/ui";
 import { createInvoice } from "@/actions/invoices";
 import { useToast } from "@/components/providers/toast-provider";
+import { formatCurrency } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import type { BillingInterval } from "@prisma/client";
 
 type ClientOption = { id: string; companyName: string };
 
-export function CreateInvoiceForm({ clients }: { clients: ClientOption[] }) {
+export type CatalogProduct = {
+  id: string;
+  name: string;
+  description: string | null;
+  amountCents: number;
+  interval: BillingInterval;
+};
+
+export function CreateInvoiceForm({
+  clients,
+  products,
+}: {
+  clients: ClientOption[];
+  products: CatalogProduct[];
+}) {
   const { success, error } = useToast();
   const [pending, startTransition] = React.useTransition();
+  const [productId, setProductId] = React.useState("");
+  const [title, setTitle] = React.useState("");
+  const [amount, setAmount] = React.useState("");
+  const [description, setDescription] = React.useState("");
   const [recurring, setRecurring] = React.useState(false);
+  const [interval, setInterval] = React.useState<BillingInterval>("MONTHLY");
   const formRef = React.useRef<HTMLFormElement>(null);
+
+  function applyProduct(id: string) {
+    setProductId(id);
+    if (!id) return;
+    const product = products.find((p) => p.id === id);
+    if (!product) return;
+    setTitle(product.name);
+    setAmount((product.amountCents / 100).toFixed(2));
+    setDescription(product.description ?? "");
+    setRecurring(true);
+    setInterval(product.interval);
+  }
+
+  function resetForm() {
+    formRef.current?.reset();
+    setProductId("");
+    setTitle("");
+    setAmount("");
+    setDescription("");
+    setRecurring(false);
+    setInterval("MONTHLY");
+  }
 
   return (
     <form
@@ -33,8 +76,7 @@ export function CreateInvoiceForm({ clients }: { clients: ClientOption[] }) {
                 ? "Client will subscribe and be charged automatically each period."
                 : undefined
             );
-            formRef.current?.reset();
-            setRecurring(false);
+            resetForm();
           } catch (err) {
             error(
               "Could not create invoice",
@@ -61,12 +103,31 @@ export function CreateInvoiceForm({ clients }: { clients: ClientOption[] }) {
         </select>
       </div>
       <div className="space-y-2">
+        <Label htmlFor="inv-product">Product</Label>
+        <select
+          id="inv-product"
+          name="productId"
+          className={selectClassName}
+          value={productId}
+          onChange={(e) => applyProduct(e.target.value)}
+        >
+          <option value="">Custom</option>
+          {products.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name} — {formatCurrency(p.amountCents)}/{p.interval.toLowerCase()}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-2">
         <Label htmlFor="inv-title">Title</Label>
         <Input
           id="inv-title"
           name="title"
           required
           placeholder="Monthly retainer"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
         />
       </div>
       <div className="space-y-2">
@@ -78,6 +139,8 @@ export function CreateInvoiceForm({ clients }: { clients: ClientOption[] }) {
           step="0.01"
           min="0"
           required
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
         />
       </div>
       <div className="space-y-2">
@@ -86,7 +149,12 @@ export function CreateInvoiceForm({ clients }: { clients: ClientOption[] }) {
       </div>
       <div className="space-y-2 sm:col-span-2">
         <Label htmlFor="inv-description">Description</Label>
-        <Input id="inv-description" name="description" />
+        <Input
+          id="inv-description"
+          name="description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
       </div>
 
       <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3 sm:col-span-2 lg:col-span-3">
@@ -114,7 +182,8 @@ export function CreateInvoiceForm({ clients }: { clients: ClientOption[] }) {
               name="interval"
               required
               className={selectClassName}
-              defaultValue="MONTHLY"
+              value={interval}
+              onChange={(e) => setInterval(e.target.value as BillingInterval)}
             >
               <option value="WEEKLY">Weekly</option>
               <option value="MONTHLY">Monthly</option>

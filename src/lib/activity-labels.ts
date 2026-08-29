@@ -11,6 +11,7 @@ const ACTION_LABELS: Record<string, string> = {
   "invoice.recurring_created": "Created recurring invoice",
   "invoice.recurring_cancelled": "Cancelled recurring invoice",
   "invoice.created": "Created invoice",
+  "product.created": "Created product",
 };
 
 export function activityLabel(action: string): string {

@@ -1,9 +1,37 @@
-import { PrismaClient, UserRole, InvoiceStatus, TaskStatus, TicketStatus } from "@prisma/client";
+import {
+  PrismaClient,
+  UserRole,
+  InvoiceStatus,
+  TaskStatus,
+  TicketStatus,
+  ClientTier,
+  BillingInterval,
+} from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
 async function main() {
+  await prisma.product.upsert({
+    where: { slug: "custom-website-lease" },
+    update: {
+      name: "Custom Website Lease",
+      description: "Monthly lease for a custom Voixly website",
+      amountCents: 39500,
+      interval: BillingInterval.MONTHLY,
+      active: true,
+      deletedAt: null,
+    },
+    create: {
+      slug: "custom-website-lease",
+      name: "Custom Website Lease",
+      description: "Monthly lease for a custom Voixly website",
+      amountCents: 39500,
+      interval: BillingInterval.MONTHLY,
+      active: true,
+    },
+  });
+
   const passwordHash = await bcrypt.hash("password123", 12);
 
   const admin = await prisma.user.upsert({
@@ -50,6 +78,10 @@ async function main() {
   });
 
   const clientId = clientUser.clientProfile!.id;
+  await prisma.client.update({
+    where: { id: clientId },
+    data: { tier: ClientTier.GOLD },
+  });
   const staffProfile = await prisma.staffProfile.findUnique({
     where: { userId: staff.id },
   });

@@ -13,7 +13,7 @@ export default async function SettingsLayout({
     <div>
       <PageHeader
         title="Settings"
-        description="Manage users, payment providers, email, and integrations"
+        description="Manage users, products, payment providers, email, and integrations"
         className="mb-6"
       />
       <SettingsSubnav />
