@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/shared/confirm-dialog";
 import { useToast } from "@/components/providers/toast-provider";
 import { cancelRecurringInvoice } from "@/actions/invoices";
+import { actionErrorMessage } from "@/lib/action-error";
 import { Loader2 } from "lucide-react";
 
 export function CancelRecurringButton({
@@ -37,10 +38,7 @@ export function CancelRecurringButton({
             await cancelRecurringInvoice(recurringInvoiceId);
             success("Recurring charge cancelled");
           } catch (err) {
-            error(
-              "Could not cancel",
-              err instanceof Error ? err.message : undefined
-            );
+            error("Could not cancel", actionErrorMessage(err));
           }
         });
       }}

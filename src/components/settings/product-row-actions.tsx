@@ -11,6 +11,7 @@ import {
   setProductActive,
   updateProduct,
 } from "@/actions/products";
+import { actionErrorMessage } from "@/lib/action-error";
 import { Check, Loader2, Trash2 } from "lucide-react";
 
 type Interval = "WEEKLY" | "MONTHLY" | "YEARLY";
@@ -47,10 +48,7 @@ export function ProductEditForm({
             window.setTimeout(() => setJustSaved(false), 2200);
             success("Changes saved", `${nextName} is up to date.`);
           } catch (err) {
-            error(
-              "Could not save product",
-              err instanceof Error ? err.message : undefined
-            );
+            error("Could not save product", actionErrorMessage(err));
           }
         });
       }}
@@ -119,7 +117,7 @@ export function ProductStatusActions({
         await fn();
         success(message, description);
       } catch (err) {
-        error("Action failed", err instanceof Error ? err.message : undefined);
+        error("Action failed", actionErrorMessage(err));
       }
     });
   };

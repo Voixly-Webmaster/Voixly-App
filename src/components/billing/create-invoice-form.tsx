@@ -5,8 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { selectClassName } from "@/lib/ui";
-import { createInvoice } from "@/actions/invoices";
 import { useToast } from "@/components/providers/toast-provider";
+import { actionErrorMessage } from "@/lib/action-error";
 import { formatCurrency } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import type { BillingInterval } from "@prisma/client";
@@ -66,10 +66,21 @@ export function CreateInvoiceForm({
       className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
       onSubmit={(e) => {
         e.preventDefault();
+        if (pending) return;
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
           try {
-            await createInvoice(formData);
+            const res = await fetch("/api/invoices", {
+              method: "POST",
+              body: formData,
+              credentials: "same-origin",
+            });
+            if (!res.ok) {
+              const body = (await res.json().catch(() => null)) as {
+                error?: string;
+              } | null;
+              throw new Error(body?.error || "Could not create invoice");
+            }
             success(
               recurring ? "Recurring invoice created" : "Invoice sent",
               recurring
@@ -78,10 +89,7 @@ export function CreateInvoiceForm({
             );
             resetForm();
           } catch (err) {
-            error(
-              "Could not create invoice",
-              err instanceof Error ? err.message : undefined
-            );
+            error("Could not create invoice", actionErrorMessage(err));
           }
         });
       }}

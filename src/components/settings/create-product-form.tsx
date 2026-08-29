@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/providers/toast-provider";
 import { selectClassName } from "@/lib/ui";
 import { createProduct } from "@/actions/products";
+import { actionErrorMessage } from "@/lib/action-error";
 import { Check, Loader2 } from "lucide-react";
 
 export function CreateProductForm() {
@@ -33,10 +34,7 @@ export function CreateProductForm() {
             window.setTimeout(() => setJustAdded(false), 2200);
             success("Product added", name ? `${name} is ready to bill.` : undefined);
           } catch (err) {
-            error(
-              "Could not add product",
-              err instanceof Error ? err.message : undefined
-            );
+            error("Could not add product", actionErrorMessage(err));
           }
         });
       }}
