@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireAdmin, getStaffClientScope } from "@/lib/session-guard";
+
 import { PageHeader } from "@/components/shared/page-header";
 import {
   DataTable,
@@ -18,6 +20,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { formatRelativeTime } from "@/lib/utils";
 import { TicketStatus } from "@prisma/client";
+
+export const metadata: Metadata = {
+  title: "Support",
+  description: "Triage and reply to client support tickets.",
+};
 
 const TICKET_STATUS_OPTIONS = [
   { value: TicketStatus.OPEN, label: "Open" },

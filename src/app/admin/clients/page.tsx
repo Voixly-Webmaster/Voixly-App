@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireAdmin, getStaffClientScope } from "@/lib/session-guard";
+
 import { PageHeader } from "@/components/shared/page-header";
 import {
   DataTable,
@@ -25,6 +27,11 @@ import { ClientTier, UserRole } from "@prisma/client";
 import { formatDate } from "@/lib/utils";
 import { EmptyState } from "@/components/shared/empty-state";
 import { UserPlus, Users } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Clients",
+  description: "Manage client companies, contacts, tiers, and assignments.",
+};
 
 export default async function AdminClientsPage({
   searchParams,

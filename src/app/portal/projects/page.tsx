@@ -1,11 +1,18 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { requireClient } from "@/lib/session-guard";
 import { PageHeader } from "@/components/shared/page-header";
+
 import { EmptyState } from "@/components/shared/empty-state";
 import { TaskCard } from "@/components/tasks/task-card";
 import { toDateKey } from "@/lib/task-utils";
 import type { TaskItem } from "@/types/tasks";
 import { FolderKanban } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Projects",
+  description: "See the work Voixly is tracking for your account.",
+};
 
 export default async function PortalProjectsPage() {
   const user = await requireClient();

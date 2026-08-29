@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireClient } from "@/lib/session-guard";
+
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable, DataTableCell, DataTableRow } from "@/components/shared/data-table";
 import { FormPanel } from "@/components/shared/form-panel";
@@ -12,6 +14,11 @@ import { Label } from "@/components/ui/label";
 import { createTicket } from "@/actions/tickets";
 import { formatDate } from "@/lib/utils";
 import { MessageSquarePlus } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Support",
+  description: "Open a ticket or follow an existing conversation with Voixly.",
+};
 
 export default async function PortalSupportPage() {
   const user = await requireClient();

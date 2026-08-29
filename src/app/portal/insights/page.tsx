@@ -1,10 +1,17 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { requireClient } from "@/lib/session-guard";
 import { PageHeader } from "@/components/shared/page-header";
+
 import { InsightsMetricsView } from "@/components/insights/insights-metrics";
 import { EmptyState } from "@/components/shared/empty-state";
 import { loadInsightsData } from "@/lib/insights/load";
 import { LineChart } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Insights",
+  description: "Analytics and Search Console performance shared by Voixly.",
+};
 
 export default async function PortalInsightsPage() {
   const user = await requireClient();

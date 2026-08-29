@@ -1,12 +1,19 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { requireAdmin, getStaffClientScope } from "@/lib/session-guard";
 import { PageHeader } from "@/components/shared/page-header";
+
 import { TaskBoard } from "@/components/tasks/task-board";
 import { toDateKey, todayKey } from "@/lib/task-utils";
 import { goalDateRange } from "@/lib/daily-wins";
 import type { DailyWinItem } from "@/components/tasks/daily-wins";
 import type { TaskItem } from "@/types/tasks";
 import { UserRole } from "@prisma/client";
+
+export const metadata: Metadata = {
+  title: "Tasks",
+  description: "Track internal and client-visible project tasks.",
+};
 
 export default async function AdminTasksPage() {
   const user = await requireAdmin();

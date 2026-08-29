@@ -1,9 +1,16 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { requireAdmin, getStaffClientScope } from "@/lib/session-guard";
 import { PageHeader } from "@/components/shared/page-header";
+
 import { DataTable, DataTableCell, DataTableRow } from "@/components/shared/data-table";
 import { formatDateTime } from "@/lib/utils";
 import { activityLabel } from "@/lib/activity-labels";
+
+export const metadata: Metadata = {
+  title: "Activity",
+  description: "Audit log of client, billing, and team actions.",
+};
 
 export default async function AdminActivityPage() {
   const user = await requireAdmin();

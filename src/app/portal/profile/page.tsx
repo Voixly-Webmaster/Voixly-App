@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { requireClient } from "@/lib/session-guard";
 import { PageHeader } from "@/components/shared/page-header";
+
 import { FormPanel } from "@/components/shared/form-panel";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { updateOwnProfile } from "@/actions/clients";
 import { User } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Profile",
+  description: "Your company contact details on file with Voixly.",
+};
 
 export default async function PortalProfilePage() {
   const user = await requireClient();

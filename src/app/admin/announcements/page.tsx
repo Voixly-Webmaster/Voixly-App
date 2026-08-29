@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/session-guard";
 import { PageHeader } from "@/components/shared/page-header";
+
 import { FormPanel } from "@/components/shared/form-panel";
 import { Panel } from "@/components/shared/panel";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -12,6 +14,11 @@ import { createAnnouncement } from "@/actions/announcements";
 import { formatDate } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { Megaphone } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Announcements",
+  description: "Publish updates that appear in the client portal.",
+};
 
 export default async function AdminAnnouncementsPage() {
   const user = await requireAdmin();

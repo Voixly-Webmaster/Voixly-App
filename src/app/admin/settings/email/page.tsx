@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { FormPanel } from "@/components/shared/form-panel";
 import { AlertBanner } from "@/components/shared/alert-banner";
 import { SettingsForm } from "@/components/settings/settings-form";
@@ -5,7 +6,13 @@ import { SettingField } from "@/components/settings/setting-field";
 import { saveSettings } from "@/actions/settings";
 import { getSettingsStatus, type SettingKey } from "@/lib/settings";
 import { Mail } from "lucide-react";
+
 import { TestEmailButton } from "@/components/settings/test-email-button";
+
+export const metadata: Metadata = {
+  title: "Email",
+  description: "Resend delivery settings and notification sender address.",
+};
 
 const KEYS: SettingKey[] = ["resend.apiKey", "resend.fromEmail"];
 

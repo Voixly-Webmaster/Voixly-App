@@ -1,7 +1,9 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { requireAdminRole } from "@/lib/session-guard";
 import { FormPanel } from "@/components/shared/form-panel";
 import { DataTable, DataTableCell, DataTableRow } from "@/components/shared/data-table";
+
 import { EmptyState } from "@/components/shared/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +13,11 @@ import { formatCurrency } from "@/lib/utils";
 import { intervalLabel } from "@/lib/billing";
 import { createProduct, updateProduct, setProductActive } from "@/actions/products";
 import { Package } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Products",
+  description: "Catalog of recurring products and website leases.",
+};
 
 export default async function ProductsSettingsPage() {
   await requireAdminRole();

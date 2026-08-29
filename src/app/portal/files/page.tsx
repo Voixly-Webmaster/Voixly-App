@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { requireClient } from "@/lib/session-guard";
 import { PageHeader } from "@/components/shared/page-header";
+
 import { DataTable, DataTableCell, DataTableRow } from "@/components/shared/data-table";
 import { FormPanel } from "@/components/shared/form-panel";
 import { Button } from "@/components/ui/button";
@@ -10,6 +12,11 @@ import { uploadFile } from "@/actions/files";
 import { fileDownloadUrl } from "@/lib/uploads";
 import { formatDate, formatBytes } from "@/lib/utils";
 import { Upload, Download } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Files",
+  description: "Download deliverables and documents shared with your team.",
+};
 
 export default async function PortalFilesPage() {
   const user = await requireClient();

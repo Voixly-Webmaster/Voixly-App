@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/lib/auth";
@@ -6,7 +7,39 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Panel } from "@/components/shared/panel";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { SiteJsonLd } from "@/components/seo/json-ld";
+import { LOGIN_DESCRIPTION, LOGIN_TITLE, OG_DESCRIPTION, OG_TITLE } from "@/lib/seo";
 import { UserRole } from "@prisma/client";
+
+export const metadata: Metadata = {
+  title: LOGIN_TITLE,
+  description: LOGIN_DESCRIPTION,
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true },
+  },
+  alternates: { canonical: "/login" },
+  openGraph: {
+    title: OG_TITLE,
+    description: OG_DESCRIPTION,
+    url: "/login",
+    images: [
+      {
+        url: "/opengraph-image.png",
+        width: 1200,
+        height: 630,
+        alt: OG_DESCRIPTION,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: OG_TITLE,
+    description: OG_DESCRIPTION,
+    images: ["/twitter-image.png"],
+  },
+};
 
 export default async function LoginPage({
   searchParams,
@@ -22,6 +55,7 @@ export default async function LoginPage({
 
   return (
     <div className="relative flex min-h-screen app-main-bg">
+      <SiteJsonLd />
       <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6">
         <ThemeToggle />
       </div>
@@ -33,12 +67,15 @@ export default async function LoginPage({
           width={160}
           height={48}
           className="brightness-0 invert"
+          priority
         />
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">ClientHub</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Your work, in one place.
+          </h1>
           <p className="mt-3 max-w-md text-brand-muted">
-            Your premium client portal for billing, support, projects, and
-            documents — powered by Voixly.
+            Invoices, projects, files, and support — the secure Voixly portal
+            for clients and the team behind them.
           </p>
         </div>
         <p className="text-sm text-brand-muted/80">© Voixly Digital Marketing</p>
@@ -53,6 +90,7 @@ export default async function LoginPage({
               width={48}
               height={48}
               className="rounded-xl"
+              priority
             />
           </div>
           <Panel

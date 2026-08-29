@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { requireAdminRole } from "@/lib/session-guard";
 import { PageHeader } from "@/components/shared/page-header";
 import { SettingsSubnav } from "@/components/settings/settings-subnav";
+
+export const metadata: Metadata = {
+  title: "Settings",
+  description: "Manage users, products, payments, email, and integrations.",
+};
 
 export default async function SettingsLayout({
   children,

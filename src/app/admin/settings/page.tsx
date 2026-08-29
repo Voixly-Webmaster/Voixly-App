@@ -1,9 +1,16 @@
+import type { Metadata } from "next";
 import { FormPanel } from "@/components/shared/form-panel";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { SettingField } from "@/components/settings/setting-field";
+
 import { saveSettings } from "@/actions/settings";
 import { getSettingsStatus, type SettingKey } from "@/lib/settings";
 import { Settings } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "General settings",
+  description: "App URL, support contact, and workspace defaults.",
+};
 
 const KEYS: SettingKey[] = ["app.name", "app.url", "app.supportEmail"];
 

@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { requireClient } from "@/lib/session-guard";
 import { PageHeader } from "@/components/shared/page-header";
+
 import { DataTable, DataTableCell, DataTableRow } from "@/components/shared/data-table";
 import { StatCard } from "@/components/shared/stat-card";
 import { AlertBanner } from "@/components/shared/alert-banner";
@@ -14,6 +16,11 @@ import { InvoiceStatus } from "@prisma/client";
 import { Wallet } from "lucide-react";
 import { Panel } from "@/components/shared/panel";
 import { Badge } from "@/components/ui/badge";
+
+export const metadata: Metadata = {
+  title: "Billing",
+  description: "View invoices, pay balances, and manage autopay.",
+};
 
 export default async function PortalBillingPage({
   searchParams,

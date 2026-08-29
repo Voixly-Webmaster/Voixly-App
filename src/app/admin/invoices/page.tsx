@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { requireAdmin, getStaffClientScope } from "@/lib/session-guard";
 import { PageHeader } from "@/components/shared/page-header";
+
 import {
   DataTable,
   DataTableCell,
@@ -23,6 +25,11 @@ import { intervalLabel, recurringStatusLabel } from "@/lib/billing";
 import { InvoiceStatus, RecurringStatus, UserRole } from "@prisma/client";
 import { FileText, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+
+export const metadata: Metadata = {
+  title: "Invoices",
+  description: "Create, send, and track client invoices and recurring billing.",
+};
 
 const INVOICE_STATUS_OPTIONS = [
   { value: InvoiceStatus.DRAFT, label: "Draft" },

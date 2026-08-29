@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireClient } from "@/lib/session-guard";
+
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { Panel } from "@/components/shared/panel";
@@ -10,6 +12,11 @@ import { TaskStatusBadge } from "@/components/shared/status-badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { InvoiceStatus, TicketStatus } from "@prisma/client";
 import { CreditCard, MessageSquare, FolderKanban, Megaphone } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+  description: "Your invoices, projects, files, and messages from Voixly.",
+};
 
 export default async function PortalDashboardPage() {
   const user = await requireClient();

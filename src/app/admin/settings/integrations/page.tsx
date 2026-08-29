@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { FormPanel } from "@/components/shared/form-panel";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { SettingField } from "@/components/settings/setting-field";
 import { saveSettings } from "@/actions/settings";
 import { getSettingsStatus, getSetting, type SettingKey } from "@/lib/settings";
 import { Plug } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Integrations",
+  description: "Connect Google Analytics and Search Console for client insights.",
+};
 
 const KEYS: SettingKey[] = ["google.clientId", "google.clientSecret"];
 

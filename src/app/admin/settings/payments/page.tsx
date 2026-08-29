@@ -1,10 +1,17 @@
+import type { Metadata } from "next";
 import { FormPanel } from "@/components/shared/form-panel";
 import { AlertBanner } from "@/components/shared/alert-banner";
 import { SettingsForm } from "@/components/settings/settings-form";
+
 import { SettingField } from "@/components/settings/setting-field";
 import { saveSettings } from "@/actions/settings";
 import { getSettingsStatus, getSetting, type SettingKey } from "@/lib/settings";
 import { CreditCard } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Payments",
+  description: "Connect Stripe and configure checkout and autopay.",
+};
 
 const KEYS: SettingKey[] = [
   "stripe.secretKey",

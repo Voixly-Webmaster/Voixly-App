@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -10,6 +11,19 @@ import { Button } from "@/components/ui/button";
 import { TicketStatusBadge } from "@/components/shared/status-badge";
 import { Panel } from "@/components/shared/panel";
 import { TicketStatusForm } from "./ticket-status-form";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const ticket = await prisma.supportTicket.findFirst({
+    where: { id, deletedAt: null },
+    select: { subject: true },
+  });
+  return { title: ticket?.subject ?? "Ticket" };
+}
 
 export default async function AdminTicketPage({
   params,

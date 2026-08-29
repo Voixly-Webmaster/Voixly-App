@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -10,6 +11,19 @@ import { InsightsMetricsView } from "@/components/insights/insights-metrics";
 import { AlertBanner } from "@/components/shared/alert-banner";
 import { Button } from "@/components/ui/button";
 import { loadInsightsData } from "@/lib/insights/load";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const client = await prisma.client.findFirst({
+    where: { id, deletedAt: null },
+    select: { companyName: true },
+  });
+  return { title: client ? `${client.companyName} insights` : "Insights" };
+}
 
 export default async function AdminClientInsightsPage({
   params,

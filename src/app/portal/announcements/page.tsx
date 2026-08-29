@@ -1,10 +1,17 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { requireClient } from "@/lib/session-guard";
 import { PageHeader } from "@/components/shared/page-header";
+
 import { Panel } from "@/components/shared/panel";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatDate } from "@/lib/utils";
 import { Megaphone } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Announcements",
+  description: "Updates and notes from your Voixly team.",
+};
 
 export default async function PortalAnnouncementsPage() {
   await requireClient();

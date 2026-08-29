@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -12,6 +13,19 @@ import { addTaskComment, updateTaskStatus } from "@/actions/tasks";
 import { TaskStatus } from "@prisma/client";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { MessageSquare } from "lucide-react";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const task = await prisma.task.findFirst({
+    where: { id, deletedAt: null },
+    select: { title: true },
+  });
+  return { title: task?.title ?? "Task" };
+}
 
 export default async function AdminTaskPage({
   params,

@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireAdmin, getStaffClientScope } from "@/lib/session-guard";
+
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { Panel } from "@/components/shared/panel";
@@ -28,6 +30,11 @@ import {
   formatRelativeTime,
 } from "@/lib/utils";
 import { activityLabel } from "@/lib/activity-labels";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+  description: "Operations overview — clients, invoices, tickets, and tasks.",
+};
 
 export default async function AdminDashboardPage() {
   const user = await requireAdmin();

@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { requireAdmin, getStaffClientScope } from "@/lib/session-guard";
 import { PageHeader } from "@/components/shared/page-header";
+
 import { DataTable, DataTableCell, DataTableRow } from "@/components/shared/data-table";
 import { FormPanel } from "@/components/shared/form-panel";
 import { SearchInput } from "@/components/shared/search-input";
@@ -13,6 +15,11 @@ import { formatDate, formatBytes } from "@/lib/utils";
 import { selectClassName } from "@/lib/ui";
 import { Upload, Download } from "lucide-react";
 import { DeleteFileButton } from "@/components/files/delete-file-button";
+
+export const metadata: Metadata = {
+  title: "Files",
+  description: "Upload and share files with clients.",
+};
 
 export default async function AdminFilesPage({
   searchParams,

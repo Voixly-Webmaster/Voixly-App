@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { requireAdminRole } from "@/lib/session-guard";
 import { FormPanel } from "@/components/shared/form-panel";
+
 import {
   DataTable,
   DataTableRow,
@@ -11,6 +13,11 @@ import { UserActions } from "@/components/settings/user-actions";
 import { formatDate } from "@/lib/utils";
 import { UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Team",
+  description: "Invite and manage staff and admin users.",
+};
 
 const roleBadge: Record<string, string> = {
   ADMIN: "bg-primary/10 text-primary",
