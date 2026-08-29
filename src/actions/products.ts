@@ -90,3 +90,28 @@ export async function setProductActive(formData: FormData) {
   revalidatePath(PRODUCTS_PATH);
   revalidatePath("/admin/invoices");
 }
+
+export async function deleteProduct(formData: FormData) {
+  const admin = await requireAdminRole();
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) throw new Error("Product is required");
+
+  const product = await prisma.product.findUnique({ where: { id } });
+  if (!product) throw new Error("Product not found");
+  if (product.active && !product.deletedAt) {
+    throw new Error("Archive this product before deleting it");
+  }
+
+  await prisma.product.delete({ where: { id } });
+
+  await logActivity({
+    actorId: admin.id,
+    action: "product.deleted",
+    entityType: "product",
+    entityId: product.id,
+    metadata: { name: product.name },
+  });
+
+  revalidatePath(PRODUCTS_PATH);
+  revalidatePath("/admin/invoices");
+}

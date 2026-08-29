@@ -9,6 +9,7 @@ import {
   ToastTitle,
   ToastViewport,
 } from "@/components/ui/toast";
+import { CheckCircle2, CircleAlert, Info } from "lucide-react";
 
 type ToastVariant = "default" | "success" | "destructive" | "info";
 
@@ -76,6 +77,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               }
             }}
           >
+            {t.variant === "success" ? (
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" aria-hidden />
+            ) : t.variant === "destructive" ? (
+              <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
+            ) : t.variant === "info" ? (
+              <Info className="mt-0.5 h-5 w-5 shrink-0 text-secondary" aria-hidden />
+            ) : null}
             <div className="min-w-0 flex-1">
               {t.title && <ToastTitle>{t.title}</ToastTitle>}
               {t.description && (
