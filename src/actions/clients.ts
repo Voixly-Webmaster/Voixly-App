@@ -105,13 +105,30 @@ export async function updateOwnProfile(formData: FormData) {
   revalidatePath("/portal/profile");
 }
 
-export async function assignStaffToClient(staffId: string, clientId: string) {
+export async function assignStaffToClient(formData: FormData) {
   const user = await requireAdmin();
   if (user.role !== UserRole.ADMIN) throw new Error("Unauthorized");
+  const staffId = String(formData.get("staffId") ?? "").trim();
+  const clientId = String(formData.get("clientId") ?? "").trim();
+  if (!staffId || !clientId) throw new Error("Staff and client are required");
+
   await prisma.staffClientAssignment.upsert({
     where: { staffId_clientId: { staffId, clientId } },
     create: { staffId, clientId },
     update: {},
+  });
+  revalidatePath(`/admin/clients/${clientId}`);
+}
+
+export async function unassignStaffFromClient(formData: FormData) {
+  const user = await requireAdmin();
+  if (user.role !== UserRole.ADMIN) throw new Error("Unauthorized");
+  const staffId = String(formData.get("staffId") ?? "").trim();
+  const clientId = String(formData.get("clientId") ?? "").trim();
+  if (!staffId || !clientId) throw new Error("Staff and client are required");
+
+  await prisma.staffClientAssignment.deleteMany({
+    where: { staffId, clientId },
   });
   revalidatePath(`/admin/clients/${clientId}`);
 }

@@ -6,8 +6,8 @@
     "node": ">=20 <=24"
   },
   "scripts": {
-    "dev": "next dev --turbopack -p 3010",
-    "dev:clean": "rm -rf .next && next dev --turbopack -p 3010",
+    "dev": "next dev --turbopack -p 3031",
+    "dev:clean": "rm -rf .next && next dev --turbopack -p 3031",
     "build": "node scripts/build.mjs",
     "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "lint": "next lint",

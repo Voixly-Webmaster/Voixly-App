@@ -9,7 +9,7 @@ const KEYS: SettingKey[] = ["google.clientId", "google.clientSecret"];
 
 export default async function IntegrationsSettingsPage() {
   const [clientId, clientSecret] = await getSettingsStatus(KEYS);
-  const appUrl = (await getSetting("app.url")) ?? "http://localhost:3010";
+  const appUrl = (await getSetting("app.url")) ?? "http://localhost:3031";
   const redirectUri = `${appUrl.replace(/\/$/, "")}/api/integrations/google/callback`;
 
   return (

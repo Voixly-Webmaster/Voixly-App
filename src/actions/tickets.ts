@@ -20,6 +20,7 @@ export async function createTicket(formData: FormData) {
     clientId = formData.get("clientId") as string;
   }
   if (!clientId) throw new Error("Client required");
+  await assertClientAccess(user, clientId);
 
   const ticket = await prisma.supportTicket.create({
     data: {

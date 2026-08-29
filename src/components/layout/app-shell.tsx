@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, LogOut, Search } from "lucide-react";
+import { Menu, LogOut, Search, X } from "lucide-react";
 import { useState } from "react";
 import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
@@ -16,17 +16,23 @@ export function AppShell({
   title,
   subtitle,
   userName,
+  userRole,
+  searchPlaceholder = "Search clients, invoices, tickets...",
 }: {
   children: React.ReactNode;
   navItems: NavItem[];
   title: string;
   subtitle?: string;
   userName?: string | null;
+  userRole?: "ADMIN" | "STAFF" | "CLIENT";
+  searchPlaceholder?: string;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const palette = useCommandPalette();
   const isMac =
     typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+  const roleLabel =
+    userRole === "ADMIN" ? "Admin" : userRole === "STAFF" ? "Staff" : userRole === "CLIENT" ? "Client" : null;
 
   return (
     <div className="flex min-h-screen app-main-bg">
@@ -47,7 +53,21 @@ export function AppShell({
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <Sidebar items={navItems} title={title} subtitle={subtitle} />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute right-2 top-3 z-10"
+          onClick={() => setMobileOpen(false)}
+          aria-label="Close navigation"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+        <Sidebar
+          items={navItems}
+          title={title}
+          subtitle={subtitle}
+          onNavigate={() => setMobileOpen(false)}
+        />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -81,7 +101,7 @@ export function AppShell({
           >
             <span className="flex items-center gap-2">
               <Search className="h-4 w-4" />
-              <span>Search clients, invoices, tickets...</span>
+              <span>{searchPlaceholder}</span>
             </span>
             <kbd className="hidden items-center gap-0.5 rounded border border-border/80 bg-card px-1.5 py-0.5 text-[10px] font-mono lg:inline-flex">
               <span>{isMac ? "⌘" : "Ctrl"}</span>K
@@ -99,9 +119,14 @@ export function AppShell({
               <Search className="h-5 w-5" />
             </Button>
             <ThemeToggle />
-            {userName && (
-              <span className="hidden rounded-full bg-muted/80 px-3 py-1 text-sm text-muted-foreground md:inline">
+            {(userName || roleLabel) && (
+              <span className="hidden items-center gap-2 rounded-full bg-muted/80 px-3 py-1 text-sm text-muted-foreground md:inline-flex">
                 {userName}
+                {roleLabel && (
+                  <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                    {roleLabel}
+                  </span>
+                )}
               </span>
             )}
             <Button

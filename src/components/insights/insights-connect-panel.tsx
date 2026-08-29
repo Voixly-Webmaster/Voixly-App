@@ -73,7 +73,7 @@ export async function InsightsConnectPanel({
           <ol className="list-decimal space-y-1 pl-5">
             <li>Enable <strong>Google Analytics Data API</strong>, <strong>Google Analytics Admin API</strong>, and <strong>Search Console API</strong></li>
             <li>Create an OAuth 2.0 Web client</li>
-            <li>Add redirect URI: <code className="text-xs">{process.env.APP_URL ?? "http://localhost:3010"}/api/integrations/google/callback</code></li>
+            <li>Add redirect URI: <code className="text-xs">{process.env.APP_URL ?? "http://localhost:3031"}/api/integrations/google/callback</code></li>
             <li>
               Paste the client ID and secret in{" "}
               <Link href="/admin/settings/integrations" className="font-medium text-primary hover:underline">

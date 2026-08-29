@@ -3,16 +3,25 @@ import { PrismaClient } from "@prisma/client";
 
 /**
  * First-deploy bootstrap: create one admin if the database is empty.
- * Defaults to admin@voixly.com / password123 unless BOOTSTRAP_ADMIN_* is set.
+ * Local/dev defaults to admin@voixly.com / password123.
+ * Production requires BOOTSTRAP_ADMIN_PASSWORD (8+ chars).
  */
 export async function ensureBootstrapAdmin() {
+  const isProd = process.env.NODE_ENV === "production";
   const email = (
     process.env.BOOTSTRAP_ADMIN_EMAIL?.trim() || "admin@voixly.com"
   ).toLowerCase();
-  const password = process.env.BOOTSTRAP_ADMIN_PASSWORD || "password123";
+  const password =
+    process.env.BOOTSTRAP_ADMIN_PASSWORD?.trim() || (isProd ? "" : "password123");
 
-  if (password.length < 8) {
-    console.warn("[bootstrap] BOOTSTRAP_ADMIN_PASSWORD must be at least 8 characters — skipped");
+  if (!password || password.length < 8) {
+    if (isProd) {
+      console.warn(
+        "[bootstrap] set BOOTSTRAP_ADMIN_PASSWORD (8+ chars) to create the first admin — skipped"
+      );
+    } else {
+      console.warn("[bootstrap] BOOTSTRAP_ADMIN_PASSWORD must be at least 8 characters — skipped");
+    }
     return;
   }
 

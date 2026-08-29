@@ -9,10 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { updateClientProfile, addClientNote } from "@/actions/clients";
+import {
+  updateClientProfile,
+  addClientNote,
+  assignStaffToClient,
+  unassignStaffFromClient,
+} from "@/actions/clients";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { InvoiceStatusBadge } from "@/components/shared/status-badge";
-import { Building2, StickyNote, Receipt } from "lucide-react";
+import { UserRole } from "@prisma/client";
+import { selectClassName } from "@/lib/ui";
+import { Building2, StickyNote, Receipt, Users } from "lucide-react";
 
 export default async function AdminClientDetailPage({
   params,
@@ -38,6 +45,21 @@ export default async function AdminClientDetailPage({
   });
 
   if (!client) notFound();
+
+  const assignedStaffIds = new Set(
+    client.staffAssignments.map((a) => a.staffId)
+  );
+  const availableStaff =
+    user.role === UserRole.ADMIN
+      ? await prisma.staffProfile.findMany({
+          where: {
+            user: { deletedAt: null, role: { in: [UserRole.STAFF, UserRole.ADMIN] } },
+          },
+          include: { user: { select: { name: true, email: true, role: true } } },
+          orderBy: { user: { name: "asc" } },
+        })
+      : [];
+  const unassignedStaff = availableStaff.filter((s) => !assignedStaffIds.has(s.id));
 
   return (
     <div className="space-y-6">
@@ -104,6 +126,75 @@ export default async function AdminClientDetailPage({
             </div>
           </div>
         </Panel>
+
+        {user.role === UserRole.ADMIN && (
+          <Panel
+            title="Assigned staff"
+            description="Staff who can see this client in the admin hub"
+            icon={Users}
+            accent="none"
+            className="lg:col-span-2"
+          >
+            <div className="space-y-4">
+              {client.staffAssignments.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No staff assigned yet. Assign someone so they can work this account.
+                </p>
+              ) : (
+                <ul className="divide-y divide-border/60">
+                  {client.staffAssignments.map((assignment) => (
+                    <li
+                      key={assignment.id}
+                      className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">
+                          {assignment.staff.user.name ?? assignment.staff.user.email}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {assignment.staff.title ?? assignment.staff.user.email}
+                        </p>
+                      </div>
+                      <form action={unassignStaffFromClient}>
+                        <input type="hidden" name="staffId" value={assignment.staffId} />
+                        <input type="hidden" name="clientId" value={client.id} />
+                        <Button type="submit" variant="outline" size="sm">
+                          Remove
+                        </Button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {unassignedStaff.length > 0 && (
+                <form action={assignStaffToClient} className="flex flex-wrap items-end gap-3">
+                  <input type="hidden" name="clientId" value={client.id} />
+                  <div className="min-w-[16rem] flex-1 space-y-2">
+                    <Label htmlFor="assign-staff">Add staff</Label>
+                    <select
+                      id="assign-staff"
+                      name="staffId"
+                      required
+                      className={selectClassName}
+                      defaultValue=""
+                    >
+                      <option value="" disabled>
+                        Select staff
+                      </option>
+                      {unassignedStaff.map((staff) => (
+                        <option key={staff.id} value={staff.id}>
+                          {staff.user.name ?? staff.user.email}
+                          {staff.user.role === UserRole.ADMIN ? " (Admin)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button type="submit">Assign</Button>
+                </form>
+              )}
+            </div>
+          </Panel>
+        )}
 
         <Panel
           title="Recent invoices"

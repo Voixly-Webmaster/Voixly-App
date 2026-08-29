@@ -27,6 +27,7 @@ import {
   formatDate,
   formatRelativeTime,
 } from "@/lib/utils";
+import { activityLabel } from "@/lib/activity-labels";
 
 export default async function AdminDashboardPage() {
   const user = await requireAdmin();
@@ -117,6 +118,14 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="space-y-8">
+      {user.role === UserRole.STAFF && scope !== "all" && scope.length === 0 && (
+        <EmptyState
+          icon={Users}
+          title="No clients assigned yet"
+          description="Ask an admin to assign you to a client. Until then, your lists will stay empty."
+        />
+      )}
+
       <PageHeader
         title="Dashboard"
         description={
@@ -314,8 +323,8 @@ export default async function AdminDashboardPage() {
                     <span className="font-medium">
                       {log.actor?.name ?? log.actor?.email ?? "System"}
                     </span>{" "}
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {log.action}
+                    <span className="text-muted-foreground">
+                      {activityLabel(log.action)}
                     </span>
                     {log.client?.companyName && (
                       <>

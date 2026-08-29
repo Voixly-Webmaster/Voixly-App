@@ -11,7 +11,7 @@ export async function googleRedirectUri(): Promise<string> {
   const base =
     (await getSetting("app.url")) ??
     process.env.NEXTAUTH_URL ??
-    "http://localhost:3010";
+    "http://localhost:3031";
   return `${base.replace(/\/$/, "")}/api/integrations/google/callback`;
 }
 

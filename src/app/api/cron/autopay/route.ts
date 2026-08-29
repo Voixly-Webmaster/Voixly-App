@@ -9,19 +9,22 @@ import { runMonthlyAutopaySweep } from "@/lib/autopay";
  *   Authorization: Bearer <CRON_SECRET>
  *   or ?secret=<CRON_SECRET>
  *
- * Schedule daily (e.g. cron-job.org / Vercel cron) — clients only charge
+ * Required in production. Schedule daily — clients only charge
  * on their chosen day of the month.
  */
-export async function GET(req: Request) {
+function authorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET?.trim();
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    const url = new URL(req.url);
-    const ok =
-      auth === `Bearer ${secret}` || url.searchParams.get("secret") === secret;
-    if (!ok) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!secret) {
+    return process.env.NODE_ENV !== "production";
+  }
+  const auth = req.headers.get("authorization");
+  const url = new URL(req.url);
+  return auth === `Bearer ${secret}` || url.searchParams.get("secret") === secret;
+}
+
+export async function GET(req: Request) {
+  if (!authorized(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const result = await runMonthlyAutopaySweep();

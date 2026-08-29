@@ -6,6 +6,6 @@ export async function getAppUrl(): Promise<string> {
     process.env.APP_URL ??
     process.env.NEXTAUTH_URL ??
     process.env.AUTH_URL ??
-    "http://localhost:3010";
+    "http://localhost:3031";
   return raw.replace(/\/$/, "");
 }

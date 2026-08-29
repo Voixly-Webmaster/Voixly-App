@@ -12,6 +12,7 @@ import {
   Settings,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
+import { CommandPaletteProvider } from "@/components/shared/command-palette";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -38,13 +39,17 @@ export function AdminShell({
     : navItems;
 
   return (
-    <AppShell
-      navItems={items}
-      title="ClientHub"
-      subtitle="Operations"
-      userName={userName}
-    >
-      {children}
-    </AppShell>
+    <CommandPaletteProvider>
+      <AppShell
+        navItems={items}
+        title="ClientHub"
+        subtitle="Operations"
+        userName={userName}
+        userRole={isAdmin ? "ADMIN" : "STAFF"}
+        searchPlaceholder="Search clients, invoices, tickets..."
+      >
+        {children}
+      </AppShell>
+    </CommandPaletteProvider>
   );
 }

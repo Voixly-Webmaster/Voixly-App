@@ -72,7 +72,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.clientId = (user as { clientId?: string | null }).clientId ?? null;
         token.staffProfileId =
           (user as { staffProfileId?: string | null }).staffProfileId ?? null;
+        return token;
       }
+
+      const userId = (token.id as string | undefined) || token.sub;
+      if (!userId) return token;
+
+      const dbUser = await prisma.user.findFirst({
+        where: { id: userId, deletedAt: null },
+        include: { clientProfile: true, staffProfile: true },
+      });
+      if (!dbUser) return null;
+
+      token.id = dbUser.id;
+      token.role = dbUser.role;
+      token.clientId = dbUser.clientProfile?.id ?? null;
+      token.staffProfileId = dbUser.staffProfile?.id ?? null;
+      token.email = dbUser.email;
+      token.name = dbUser.name;
       return token;
     },
     async session({ session, token }) {

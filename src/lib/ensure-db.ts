@@ -69,21 +69,8 @@ export async function ensureDatabase(): Promise<{
   try {
     const count = await prisma.user.count();
     if (count === 0) {
-      const bcrypt = await import("bcryptjs");
-      const email = (
-        process.env.BOOTSTRAP_ADMIN_EMAIL?.trim() || "admin@voixly.com"
-      ).toLowerCase();
-      const password = process.env.BOOTSTRAP_ADMIN_PASSWORD || "password123";
-      const name = process.env.BOOTSTRAP_ADMIN_NAME?.trim() || "Admin";
-      await prisma.user.create({
-        data: {
-          email,
-          name,
-          role: "ADMIN",
-          passwordHash: await bcrypt.hash(password, 12),
-          staffProfile: { create: { title: "Administrator" } },
-        },
-      });
+      const { ensureFirstAdmin } = await import("@/lib/bootstrap-admin");
+      await ensureFirstAdmin();
     }
     return { ok: true, step: "ready" };
   } catch (err) {

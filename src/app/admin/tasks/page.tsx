@@ -84,7 +84,7 @@ export default async function AdminTasksPage() {
     <div className="space-y-6">
       <PageHeader
         title="Tasks"
-        description="Workspaces, filters, and quick actions — same flow as your Auxili task tracker"
+        description="Workspaces, filters, and daily wins for your team"
       />
       <TaskBoard
         tasks={serialized}

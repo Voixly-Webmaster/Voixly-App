@@ -30,10 +30,12 @@ export function Sidebar({
   items,
   title,
   subtitle,
+  onNavigate,
 }: {
   items: NavItem[];
   title: string;
   subtitle?: string;
+  onNavigate?: () => void;
 }) {
   const pathname = usePathname();
   const activeHref = getActiveHref(pathname, items);
@@ -65,6 +67,7 @@ export function Sidebar({
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               aria-current={active ? "page" : undefined}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",

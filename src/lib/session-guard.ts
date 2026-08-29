@@ -29,6 +29,9 @@ export async function requireAdminRole(): Promise<SessionUser> {
 
 export async function requireClient(): Promise<SessionUser> {
   const user = await requireAuth();
+  if (user.role === UserRole.CLIENT && !user.clientId) {
+    redirect("/login?error=server");
+  }
   if (!canAccessClientPortal(user)) redirect("/admin");
   return user;
 }

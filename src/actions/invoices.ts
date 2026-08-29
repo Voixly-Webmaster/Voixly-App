@@ -284,6 +284,8 @@ export async function cancelRecurringInvoice(recurringInvoiceId: string) {
 }
 
 export async function markOverdueInvoices() {
+  const { requireAdminRole } = await import("@/lib/session-guard");
+  await requireAdminRole();
   await prisma.invoice.updateMany({
     where: {
       status: InvoiceStatus.SENT,

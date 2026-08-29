@@ -47,7 +47,7 @@ npm run db:setup   # creates the SQLite database + seeds demo data
 npm run dev
 ```
 
-Open [http://localhost:3010](http://localhost:3010)
+Open [http://localhost:3031](http://localhost:3031)
 
 ## Deploy on Hostinger (Node.js 22 + MySQL + Resend)
 
@@ -192,7 +192,7 @@ set in the UI falls back to `.env`, so either place works.
 ## Stripe webhooks (local)
 
 ```bash
-stripe listen --forward-to localhost:3010/api/webhooks/stripe
+stripe listen --forward-to localhost:3031/api/webhooks/stripe
 ```
 
 Copy the webhook signing secret into `STRIPE_WEBHOOK_SECRET`.

@@ -4,7 +4,6 @@ import { SessionProvider } from "next-auth/react";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ToastProvider } from "@/components/providers/toast-provider";
 import { ConfirmDialogProvider } from "@/components/shared/confirm-dialog";
-import { CommandPaletteProvider } from "@/components/shared/command-palette";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -33,9 +32,7 @@ export default function RootLayout({
         <ThemeProvider>
           <SessionProvider>
             <ToastProvider>
-              <ConfirmDialogProvider>
-                <CommandPaletteProvider>{children}</CommandPaletteProvider>
-              </ConfirmDialogProvider>
+              <ConfirmDialogProvider>{children}</ConfirmDialogProvider>
             </ToastProvider>
           </SessionProvider>
         </ThemeProvider>

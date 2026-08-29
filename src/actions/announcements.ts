@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/session-guard";
+import { requireAdminRole } from "@/lib/session-guard";
 
 export async function createAnnouncement(formData: FormData) {
-  await requireAdmin();
+  await requireAdminRole();
 
   const title = (formData.get("title") as string)?.trim();
   const body = (formData.get("body") as string)?.trim();

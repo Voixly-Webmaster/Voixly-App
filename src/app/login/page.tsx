@@ -68,10 +68,9 @@ export default async function LoginPage({
             )}
             {params.error === "server" && (
               <p className="mb-4 rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                Could not reach MySQL. Check{" "}
-                <code className="text-xs">DATABASE_URL</code> uses{" "}
-                <code className="text-xs">127.0.0.1</code> and the database user
-                password, then open <code className="text-xs">/api/health</code>.
+                {process.env.NODE_ENV === "production"
+                  ? "Sign-in is temporarily unavailable. Please try again in a moment."
+                  : "Could not reach the local database. Run npm run db:setup, then try again."}
               </p>
             )}
             <form
@@ -104,7 +103,18 @@ export default async function LoginPage({
             >
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" required autoComplete="email" />
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  defaultValue={
+                    process.env.NODE_ENV !== "production"
+                      ? "admin@voixly.com"
+                      : undefined
+                  }
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>

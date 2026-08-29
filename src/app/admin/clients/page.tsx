@@ -20,7 +20,8 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/actions/clients";
 import { UserRole } from "@prisma/client";
 import { formatDate } from "@/lib/utils";
-import { UserPlus } from "lucide-react";
+import { EmptyState } from "@/components/shared/empty-state";
+import { UserPlus, Users } from "lucide-react";
 
 export default async function AdminClientsPage({
   searchParams,
@@ -64,6 +65,14 @@ export default async function AdminClientsPage({
         description="Manage client accounts and profiles"
         action={<SearchInput placeholder="Search clients..." />}
       />
+
+      {user.role === UserRole.STAFF && scope !== "all" && scope.length === 0 && (
+        <EmptyState
+          icon={Users}
+          title="No clients assigned yet"
+          description="Ask an admin to assign you to a client so their accounts appear here."
+        />
+      )}
 
       {user.role === UserRole.ADMIN && (
         <FormPanel
