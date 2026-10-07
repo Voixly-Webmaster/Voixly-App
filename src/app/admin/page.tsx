@@ -43,6 +43,16 @@ export default async function AdminDashboardPage() {
     scope === "all" ? {} : { id: { in: scope.length ? scope : ["__none__"] } };
   const clientScope =
     scope === "all" ? {} : { clientId: { in: scope.length ? scope : ["__none__"] } };
+  const taskScope =
+    scope === "all"
+      ? {}
+      : {
+          OR: [
+            { clientId: { in: scope.length ? scope : ["__none__"] } },
+            { assigneeId: user.id },
+            { createdById: user.id },
+          ],
+        };
 
   const [
     clientCount,
@@ -81,7 +91,7 @@ export default async function AdminDashboardPage() {
       where: {
         deletedAt: null,
         status: { notIn: ["COMPLETED", "ARCHIVED"] },
-        ...clientScope,
+        ...taskScope,
       },
     }),
     prisma.task.count({
@@ -89,7 +99,7 @@ export default async function AdminDashboardPage() {
         completed: true,
         deletedAt: null,
         updatedAt: { gte: startOfToday() },
-        ...clientScope,
+        ...taskScope,
       },
     }),
     prisma.invoice.findMany({

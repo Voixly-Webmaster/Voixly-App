@@ -21,13 +21,16 @@ export async function createOAuth2Client() {
   );
 }
 
-export async function getGoogleAuthUrl(clientId: string): Promise<string> {
+export async function getGoogleAuthUrl(
+  clientId: string,
+  userId: string
+): Promise<string> {
   const oauth2 = await createOAuth2Client();
   return oauth2.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
     scope: GOOGLE_INSIGHTS_SCOPES,
-    state: encodeOAuthState(clientId),
+    state: encodeOAuthState(clientId, userId),
   });
 }
 

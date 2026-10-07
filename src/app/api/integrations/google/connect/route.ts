@@ -27,7 +27,7 @@ export async function GET(req: Request) {
       );
     }
 
-    const url = await getGoogleAuthUrl(clientId);
+    const url = await getGoogleAuthUrl(clientId, user.id);
     return NextResponse.redirect(url);
   } catch {
     return NextResponse.redirect(new URL("/login", req.url));

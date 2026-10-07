@@ -25,10 +25,15 @@ export async function GET(req: Request) {
     );
   }
 
-  const { clientId } = decoded;
+  const { clientId, userId } = decoded;
 
   try {
     const user = await requireAdmin();
+    if (user.id !== userId) {
+      return NextResponse.redirect(
+        new URL("/admin/clients?error=google_state", req.url)
+      );
+    }
     await assertClientAccess(user, clientId);
 
     const { tokens, googleEmail } = await exchangeCodeForTokens(code);
