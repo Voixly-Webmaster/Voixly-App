@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export function CreateInvoiceForm({
   clients: ClientOption[];
   products: CatalogProduct[];
 }) {
+  const router = useRouter();
   const { success, error } = useToast();
   const [pending, startTransition] = React.useTransition();
   const [productId, setProductId] = React.useState("");
@@ -75,19 +77,23 @@ export function CreateInvoiceForm({
               body: formData,
               credentials: "same-origin",
             });
+            const body = (await res.json().catch(() => null)) as {
+              error?: string;
+              emailSent?: boolean;
+            } | null;
             if (!res.ok) {
-              const body = (await res.json().catch(() => null)) as {
-                error?: string;
-              } | null;
               throw new Error(body?.error || "Could not create invoice");
             }
             success(
               recurring ? "Recurring invoice created" : "Invoice sent",
-              recurring
-                ? "Client will subscribe and be charged automatically each period."
-                : undefined
+              body?.emailSent === false
+                ? "Saved, but the client email did not send."
+                : recurring
+                  ? "Client will subscribe and be charged automatically each period."
+                  : undefined
             );
             resetForm();
+            router.refresh();
           } catch (err) {
             error("Could not create invoice", actionErrorMessage(err));
           }

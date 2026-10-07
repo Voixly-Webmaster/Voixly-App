@@ -27,6 +27,7 @@ import { ClientTier, UserRole } from "@prisma/client";
 import { formatDate } from "@/lib/utils";
 import { EmptyState } from "@/components/shared/empty-state";
 import { UserPlus, Users } from "lucide-react";
+import { PendingSubmit } from "@/components/shared/pending-submit";
 
 export const metadata: Metadata = {
   title: "Clients",
@@ -137,6 +138,8 @@ export default async function AdminClientsPage({
                 name="password"
                 type="password"
                 required
+                minLength={8}
+                autoComplete="new-password"
               />
             </div>
             <div className="space-y-2">
@@ -155,7 +158,7 @@ export default async function AdminClientsPage({
               </select>
             </div>
             <div className="flex items-end sm:col-span-2 lg:col-span-1">
-              <Button type="submit">Create client</Button>
+              <PendingSubmit pendingLabel="Creating…">Create client</PendingSubmit>
             </div>
           </form>
         </FormPanel>

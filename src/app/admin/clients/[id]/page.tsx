@@ -20,6 +20,7 @@ import { InvoiceStatusBadge, ClientTierBadge } from "@/components/shared/status-
 import { UserRole } from "@prisma/client";
 import { selectClassName } from "@/lib/ui";
 import { Building2, StickyNote, Receipt, Users } from "lucide-react";
+import { PendingSubmit } from "@/components/shared/pending-submit";
 
 export default async function AdminClientDetailPage({
   params,
@@ -122,7 +123,7 @@ export default async function AdminClientDetailPage({
                 <option value="BRONZE">Bronze</option>
               </select>
             </div>
-            <Button type="submit">Save</Button>
+            <PendingSubmit pendingLabel="Saving…">Save</PendingSubmit>
           </form>
         </Panel>
 
@@ -130,9 +131,9 @@ export default async function AdminClientDetailPage({
           <div className="space-y-4">
             <form action={addClientNote.bind(null, client.id)} className="space-y-2">
               <Textarea name="body" placeholder="Add a note..." required rows={2} />
-              <Button type="submit" size="sm">
+              <PendingSubmit pendingLabel="Adding…" size="sm">
                 Add note
-              </Button>
+              </PendingSubmit>
             </form>
             <div className="max-h-64 space-y-3 overflow-y-auto">
               {client.clientNotes.map((n) => (
@@ -178,9 +179,9 @@ export default async function AdminClientDetailPage({
                       <form action={unassignStaffFromClient}>
                         <input type="hidden" name="staffId" value={assignment.staffId} />
                         <input type="hidden" name="clientId" value={client.id} />
-                        <Button type="submit" variant="outline" size="sm">
+                        <PendingSubmit pendingLabel="Removing…" variant="outline" size="sm">
                           Remove
-                        </Button>
+                        </PendingSubmit>
                       </form>
                     </li>
                   ))}
@@ -209,7 +210,7 @@ export default async function AdminClientDetailPage({
                       ))}
                     </select>
                   </div>
-                  <Button type="submit">Assign</Button>
+                  <PendingSubmit pendingLabel="Assigning…">Assign</PendingSubmit>
                 </form>
               )}
             </div>

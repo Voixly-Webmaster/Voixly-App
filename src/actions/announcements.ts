@@ -24,4 +24,39 @@ export async function createAnnouncement(formData: FormData) {
 
   revalidatePath("/admin/announcements");
   revalidatePath("/portal/announcements");
+  revalidatePath("/portal");
+}
+
+export async function setAnnouncementPublished(formData: FormData) {
+  await requireAdminRole();
+  const id = String(formData.get("id") ?? "").trim();
+  const published = formData.get("published") === "true";
+  if (!id) throw new Error("Announcement is required");
+
+  await prisma.announcement.update({
+    where: { id },
+    data: {
+      published,
+      publishAt: published ? new Date() : null,
+    },
+  });
+
+  revalidatePath("/admin/announcements");
+  revalidatePath("/portal/announcements");
+  revalidatePath("/portal");
+}
+
+export async function deleteAnnouncement(formData: FormData) {
+  await requireAdminRole();
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) throw new Error("Announcement is required");
+
+  await prisma.announcement.update({
+    where: { id },
+    data: { published: false, deletedAt: new Date() },
+  });
+
+  revalidatePath("/admin/announcements");
+  revalidatePath("/portal/announcements");
+  revalidatePath("/portal");
 }

@@ -34,6 +34,13 @@ export async function createClient(formData: FormData) {
   if (!email || !password || !companyName) {
     throw new Error("Email, password, and company name required");
   }
+  if (!email.includes("@")) throw new Error("Valid email is required");
+  if (password.length < 8) {
+    throw new Error("Password must be at least 8 characters");
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) throw new Error("A user with that email already exists");
 
   const passwordHash = await bcrypt.hash(password, 12);
 
@@ -81,6 +88,7 @@ export async function updateClientProfile(formData: FormData) {
   await assertClientAccess(user, clientId);
 
   const companyName = (formData.get("companyName") as string)?.trim();
+  if (!companyName) throw new Error("Company name is required");
   const contactName = (formData.get("contactName") as string)?.trim() || null;
   const phone = (formData.get("phone") as string)?.trim() || null;
   const address = (formData.get("address") as string)?.trim() || null;
@@ -116,6 +124,13 @@ export async function updateOwnProfile(formData: FormData) {
     where: { id: session.clientId! },
     data: { contactName, phone, address },
   });
+
+  if (contactName) {
+    await prisma.user.update({
+      where: { id: session.id },
+      data: { name: contactName },
+    });
+  }
 
   revalidatePath("/portal/profile");
 }

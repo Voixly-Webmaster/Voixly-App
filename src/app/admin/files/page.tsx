@@ -15,6 +15,8 @@ import { formatDate, formatBytes } from "@/lib/utils";
 import { selectClassName } from "@/lib/ui";
 import { Upload, Download } from "lucide-react";
 import { DeleteFileButton } from "@/components/files/delete-file-button";
+import { PendingSubmit } from "@/components/shared/pending-submit";
+import { UserRole } from "@prisma/client";
 
 export const metadata: Metadata = {
   title: "Files",
@@ -79,8 +81,14 @@ export default async function AdminFilesPage({
               id="file-client"
               name="clientId"
               className={selectClassName + " min-w-[200px]"}
+              required={user.role !== UserRole.ADMIN}
+              defaultValue={user.role === UserRole.ADMIN ? "" : undefined}
             >
-              <option value="">Internal</option>
+              {user.role === UserRole.ADMIN ? (
+                <option value="">Internal</option>
+              ) : (
+                <option value="">Select client</option>
+              )}
               {clients.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.companyName}
@@ -101,7 +109,7 @@ export default async function AdminFilesPage({
             />
             Client visible
           </label>
-          <Button type="submit">Upload</Button>
+          <PendingSubmit pendingLabel="Uploading…">Upload</PendingSubmit>
         </form>
       </FormPanel>
 

@@ -12,6 +12,7 @@ import { uploadFile } from "@/actions/files";
 import { fileDownloadUrl } from "@/lib/uploads";
 import { formatDate, formatBytes } from "@/lib/utils";
 import { Upload, Download } from "lucide-react";
+import { PendingSubmit } from "@/components/shared/pending-submit";
 
 export const metadata: Metadata = {
   title: "Files",
@@ -46,7 +47,7 @@ export default async function PortalFilesPage() {
             <Label htmlFor="portal-file-input">File</Label>
             <Input id="portal-file-input" type="file" name="file" required className="max-w-sm" />
           </div>
-          <Button type="submit">Upload</Button>
+          <PendingSubmit pendingLabel="Uploading…">Upload</PendingSubmit>
         </form>
       </FormPanel>
 

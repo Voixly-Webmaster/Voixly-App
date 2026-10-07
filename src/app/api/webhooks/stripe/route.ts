@@ -92,29 +92,41 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   if (!invoiceId || !clientId) return;
 
+  const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+  if (!invoice || invoice.clientId !== clientId) return;
+
   const paymentIntentId =
     typeof session.payment_intent === "string"
       ? session.payment_intent
       : session.payment_intent?.id;
 
-  await prisma.$transaction([
-    prisma.invoice.update({
-      where: { id: invoiceId },
-      data: { status: InvoiceStatus.PAID, paidAt: new Date() },
-    }),
-    prisma.payment.updateMany({
-      where: { stripeCheckoutSessionId: session.id },
-      data: {
-        status: PaymentStatus.SUCCEEDED,
-        paidAt: new Date(),
-        stripePaymentIntentId: paymentIntentId,
-      },
-    }),
-    prisma.client.update({
+  const paidAt = new Date();
+  const markedPaid = await prisma.invoice.updateMany({
+    where: {
+      id: invoiceId,
+      status: { notIn: [InvoiceStatus.PAID, InvoiceStatus.VOID] },
+    },
+    data: { status: InvoiceStatus.PAID, paidAt },
+  });
+
+  await prisma.payment.updateMany({
+    where: {
+      stripeCheckoutSessionId: session.id,
+      status: { not: PaymentStatus.SUCCEEDED },
+    },
+    data: {
+      status: PaymentStatus.SUCCEEDED,
+      paidAt,
+      stripePaymentIntentId: paymentIntentId,
+    },
+  });
+
+  if (markedPaid.count > 0) {
+    await prisma.client.update({
       where: { id: clientId },
-      data: { balanceCents: { decrement: session.amount_total ?? 0 } },
-    }),
-  ]);
+      data: { balanceCents: { decrement: invoice.amountCents } },
+    });
+  }
 
   if (session.mode === "subscription" && recurringInvoiceId) {
     const subscriptionId =
@@ -137,22 +149,27 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     }
   }
 
-  await logActivity({
-    clientId,
-    action: "payment.succeeded",
-    entityType: "invoice",
-    entityId: invoiceId,
-    metadata: {
-      sessionId: session.id,
-      mode: session.mode,
-      recurringInvoiceId,
-    },
-  });
+  if (markedPaid.count > 0) {
+    await logActivity({
+      clientId,
+      action: "payment.succeeded",
+      entityType: "invoice",
+      entityId: invoiceId,
+      metadata: {
+        sessionId: session.id,
+        mode: session.mode,
+        recurringInvoiceId,
+      },
+    });
+  }
 }
 
 async function handleCheckoutExpired(session: Stripe.Checkout.Session) {
   await prisma.payment.updateMany({
-    where: { stripeCheckoutSessionId: session.id },
+    where: {
+      stripeCheckoutSessionId: session.id,
+      status: PaymentStatus.PENDING,
+    },
     data: { status: PaymentStatus.FAILED },
   });
 }

@@ -9,8 +9,9 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import { PendingSubmit } from "@/components/shared/pending-submit";
 import { createAnnouncement } from "@/actions/announcements";
+import { AnnouncementActions } from "@/components/announcements/announcement-actions";
 import { formatDate } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { Megaphone } from "lucide-react";
@@ -51,7 +52,7 @@ export default async function AdminAnnouncementsPage() {
               <input type="checkbox" name="publish" defaultChecked className="rounded" />
               Publish immediately
             </label>
-            <Button type="submit">Publish</Button>
+            <PendingSubmit pendingLabel="Publishing…">Publish</PendingSubmit>
           </form>
         </FormPanel>
       )}
@@ -70,7 +71,13 @@ export default async function AdminAnnouncementsPage() {
               title={a.title}
               description={formatDate(a.publishAt ?? a.createdAt)}
               action={
-                a.published ? (
+                user.role === UserRole.ADMIN ? (
+                  <AnnouncementActions
+                    id={a.id}
+                    title={a.title}
+                    published={a.published}
+                  />
+                ) : a.published ? (
                   <span className="rounded-full bg-success-muted px-2.5 py-0.5 text-xs font-medium text-success-foreground">
                     Published
                   </span>

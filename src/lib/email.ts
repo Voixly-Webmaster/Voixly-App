@@ -1,6 +1,14 @@
 import { Resend } from "resend";
 import { getSettings } from "@/lib/settings";
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export async function sendEmail(params: {
   to: string | string[];
   subject: string;
@@ -40,9 +48,9 @@ export function ticketReplyEmailHtml(params: {
     <div style="font-family: Inter, system-ui, sans-serif; max-width: 560px; margin: 0 auto;">
       <p style="color: #64748b; font-size: 14px;">ClientHub · Voixly</p>
       <h2 style="color: #0f172a;">${params.isStaffReply ? "New reply on your ticket" : "New client message"}</h2>
-      <p style="color: #334155;"><strong>${params.ticketSubject}</strong></p>
-      <p style="color: #475569; background: #f8fafc; padding: 16px; border-radius: 8px;">${params.messagePreview}</p>
-      <a href="${params.ticketUrl}" style="display: inline-block; margin-top: 16px; background: #FF6B4A; color: white; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">View ticket</a>
+      <p style="color: #334155;"><strong>${escapeHtml(params.ticketSubject)}</strong></p>
+      <p style="color: #475569; background: #f8fafc; padding: 16px; border-radius: 8px;">${escapeHtml(params.messagePreview)}</p>
+      <a href="${escapeHtml(params.ticketUrl)}" style="display: inline-block; margin-top: 16px; background: #FF6B4A; color: white; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">View ticket</a>
     </div>
   `;
 }
@@ -58,16 +66,16 @@ export function invoiceEmailHtml(params: {
   return `
     <div style="font-family: Inter, system-ui, sans-serif; max-width: 560px; margin: 0 auto;">
       <p style="color: #64748b; font-size: 14px;">ClientHub · Voixly</p>
-      <h2 style="color: #0f172a;">Invoice ${params.invoiceNumber}</h2>
-      ${params.title ? `<p style="color: #334155;">${params.title}</p>` : ""}
-      <p style="color: #334155;">Amount due: <strong>${params.amount}</strong></p>
-      <p style="color: #64748b;">Due: ${params.dueDate}</p>
+      <h2 style="color: #0f172a;">Invoice ${escapeHtml(params.invoiceNumber)}</h2>
+      ${params.title ? `<p style="color: #334155;">${escapeHtml(params.title)}</p>` : ""}
+      <p style="color: #334155;">Amount due: <strong>${escapeHtml(params.amount)}</strong></p>
+      <p style="color: #64748b;">Due: ${escapeHtml(params.dueDate)}</p>
       ${
         params.recurring
           ? `<p style="color: #475569; font-size: 14px;">This starts a recurring subscription. You'll be charged automatically after you subscribe.</p>`
           : ""
       }
-      <a href="${params.payUrl}" style="display: inline-block; margin-top: 16px; background: #FF6B4A; color: white; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">${params.recurring ? "Subscribe & pay" : "Pay now"}</a>
+      <a href="${escapeHtml(params.payUrl)}" style="display: inline-block; margin-top: 16px; background: #FF6B4A; color: white; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">${params.recurring ? "Subscribe & pay" : "Pay now"}</a>
     </div>
   `;
 }

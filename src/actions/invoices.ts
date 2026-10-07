@@ -19,7 +19,25 @@ import {
   toStripeInterval,
 } from "@/lib/billing";
 
-export async function createInvoice(formData: FormData) {
+async function emailInvoiceCreated(params: {
+  clientId: string;
+  invoiceNumber: string;
+  title: string;
+  amountCents: number;
+  dueDate: Date | null;
+  recurring?: boolean;
+}): Promise<boolean> {
+  try {
+    const { sendInvoiceCreatedEmail } = await import("@/lib/email");
+    await sendInvoiceCreatedEmail(params);
+    return true;
+  } catch (err) {
+    console.error("[invoice] email failed", err);
+    return false;
+  }
+}
+
+export async function createInvoice(formData: FormData): Promise<{ emailSent: boolean }> {
   const user = await requireAdmin();
   if (user.role !== UserRole.ADMIN) throw new Error("Unauthorized");
 
@@ -95,8 +113,7 @@ export async function createInvoice(formData: FormData) {
       },
     });
 
-    const { sendInvoiceCreatedEmail } = await import("@/lib/email");
-    await sendInvoiceCreatedEmail({
+    const emailSent = await emailInvoiceCreated({
       clientId,
       invoiceNumber,
       title: trimmedTitle,
@@ -104,6 +121,9 @@ export async function createInvoice(formData: FormData) {
       dueDate: dueDate ? new Date(dueDate) : null,
       recurring: true,
     });
+    revalidatePath("/admin/invoices");
+    revalidatePath("/portal/billing");
+    return { emailSent };
   } else {
     const invoice = await prisma.invoice.create({
       data: {
@@ -126,8 +146,7 @@ export async function createInvoice(formData: FormData) {
       entityId: invoice.id,
     });
 
-    const { sendInvoiceCreatedEmail } = await import("@/lib/email");
-    await sendInvoiceCreatedEmail({
+    const emailSent = await emailInvoiceCreated({
       clientId,
       invoiceNumber,
       title: trimmedTitle,
@@ -144,10 +163,11 @@ export async function createInvoice(formData: FormData) {
       const { chargeInvoiceWithAutopay } = await import("@/lib/autopay");
       await chargeInvoiceWithAutopay(invoice.id);
     }
-  }
 
-  revalidatePath("/admin/invoices");
-  revalidatePath("/portal/billing");
+    revalidatePath("/admin/invoices");
+    revalidatePath("/portal/billing");
+    return { emailSent };
+  }
 }
 
 export async function createCheckoutSession(invoiceId: string) {

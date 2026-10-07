@@ -20,7 +20,6 @@ export const ALLOWED_MIME_TYPES = new Set<string>([
   "image/jpg",
   "image/gif",
   "image/webp",
-  "image/svg+xml",
   "application/pdf",
   "application/zip",
   "application/x-zip-compressed",
@@ -37,7 +36,7 @@ export const ALLOWED_MIME_TYPES = new Set<string>([
 
 /** Extensions we accept as a fallback when the browser sends an empty MIME. */
 const ALLOWED_EXTENSIONS = new Set<string>([
-  ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg",
+  ".png", ".jpg", ".jpeg", ".gif", ".webp",
   ".pdf", ".zip",
   ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
   ".txt", ".csv", ".md",
@@ -54,7 +53,13 @@ export function fileDownloadUrl(fileId: string): string {
   return `/api/files/${fileId}`;
 }
 
-/** Absolute filesystem path for a stored filename. */
+/** Absolute filesystem path for a stored filename. Rejects path traversal. */
 export function storedFilePath(fileName: string): string {
-  return path.join(process.cwd(), UPLOAD_DIR, fileName);
+  const root = path.resolve(process.cwd(), UPLOAD_DIR);
+  const resolved = path.resolve(root, fileName);
+  const relative = path.relative(root, resolved);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error("Invalid file path");
+  }
+  return resolved;
 }

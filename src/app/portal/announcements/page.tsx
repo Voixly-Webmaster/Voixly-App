@@ -17,7 +17,11 @@ export default async function PortalAnnouncementsPage() {
   await requireClient();
 
   const announcements = await prisma.announcement.findMany({
-    where: { published: true, deletedAt: null },
+    where: {
+      published: true,
+      deletedAt: null,
+      OR: [{ publishAt: null }, { publishAt: { lte: new Date() } }],
+    },
     orderBy: { publishAt: "desc" },
   });
 

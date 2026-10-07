@@ -3,15 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/session-guard";
+import { UserRole } from "@prisma/client";
 import { goalDateRange, parseGoalDate } from "@/lib/daily-wins";
 
 export async function getDailyWins(goalDate: string, viewUserId?: string) {
-  await requireAdmin();
+  const user = await requireAdmin();
+  const scopedUserId =
+    user.role === UserRole.ADMIN ? viewUserId : user.id;
 
   const wins = await prisma.dailyWin.findMany({
     where: {
       goalDate: goalDateRange(goalDate),
-      ...(viewUserId ? { userId: viewUserId } : {}),
+      ...(scopedUserId ? { userId: scopedUserId } : {}),
     },
     include: {
       user: { select: { id: true, name: true, email: true } },

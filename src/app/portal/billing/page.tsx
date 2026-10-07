@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 export default async function PortalBillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ paid?: string; autopay?: string }>;
+  searchParams: Promise<{ paid?: string; cancelled?: string; autopay?: string }>;
 }) {
   const user = await requireClient();
   const params = await searchParams;
@@ -88,6 +88,12 @@ export default async function PortalBillingPage({
         </AlertBanner>
       )}
 
+      {params.cancelled === "1" && (
+        <AlertBanner variant="warning">
+          Checkout was cancelled. The invoice is still open if you want to try again.
+        </AlertBanner>
+      )}
+
       {params.autopay === "1" && (
         <AlertBanner>
           Monthly Autopay is on. Open invoices will be charged automatically.
@@ -143,7 +149,10 @@ export default async function PortalBillingPage({
 
       <div className="space-y-4">
         <h2 className="text-lg font-semibold tracking-tight">Invoices</h2>
-        <DataTable headers={["Invoice", "Due", "Amount", "Status", ""]}>
+        <DataTable
+          headers={["Invoice", "Due", "Amount", "Status", ""]}
+          emptyMessage="No invoices yet."
+        >
           {invoices.map((inv) => {
             const needsSubscribe =
               unpaidStatuses.includes(inv.status) &&
@@ -182,7 +191,10 @@ export default async function PortalBillingPage({
 
       <div className="space-y-4">
         <h2 className="text-lg font-semibold tracking-tight">Payment history</h2>
-        <DataTable headers={["Date", "Invoice", "Amount", "Status"]}>
+        <DataTable
+          headers={["Date", "Invoice", "Amount", "Status"]}
+          emptyMessage="No payments yet."
+        >
           {payments.map((p) => (
             <DataTableRow key={p.id}>
               <DataTableCell>{formatDate(p.paidAt ?? p.createdAt)}</DataTableCell>

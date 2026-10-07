@@ -118,7 +118,7 @@ export function DailyWins({
   const viewUser = staff.find((s) => s.id === viewUserId);
 
   const subtitle = `Close-out goals for ${format(parseISO(effectiveDate + "T12:00:00"), "MMMM d, yyyy")}${
-    isAdmin && viewUser ? ` · ${viewUser.name ?? viewUser.email}` : " · visible to team, editable by you"
+    isAdmin && viewUser ? ` · ${viewUser.name ?? viewUser.email}` : " · only you can edit these"
   }`;
 
   return (

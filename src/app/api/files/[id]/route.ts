@@ -29,14 +29,15 @@ export async function GET(
     if (!allowed) return new NextResponse("Forbidden", { status: 403 });
   }
 
-  let absPath = storedFilePath(file.path);
+  let absPath: string;
   try {
+    absPath = storedFilePath(file.path);
     await stat(absPath);
   } catch {
     // Legacy uploads stored full /uploads/{name} URLs in `path`.
     if (file.path.startsWith("/uploads/")) {
-      absPath = storedFilePath(file.path.replace(/^\/uploads\//, ""));
       try {
+        absPath = storedFilePath(file.path.replace(/^\/uploads\//, ""));
         await stat(absPath);
       } catch {
         return new NextResponse("File missing on disk", { status: 410 });
@@ -47,11 +48,17 @@ export async function GET(
   }
 
   const buffer = await readFile(absPath);
+  const unsafeInline =
+    /svg|html|xml|javascript/i.test(file.mimeType) ||
+    file.originalName.toLowerCase().endsWith(".svg");
   const headers = new Headers({
-    "Content-Type": file.mimeType || "application/octet-stream",
-    "Content-Length": String(file.sizeBytes),
-    "Content-Disposition": `inline; filename="${encodeURIComponent(file.originalName)}"`,
+    "Content-Type": unsafeInline
+      ? "application/octet-stream"
+      : file.mimeType || "application/octet-stream",
+    "Content-Length": String(buffer.byteLength),
+    "Content-Disposition": `${unsafeInline ? "attachment" : "inline"}; filename="${encodeURIComponent(file.originalName)}"`,
     "Cache-Control": "private, max-age=300, must-revalidate",
+    "X-Content-Type-Options": "nosniff",
   });
   return new NextResponse(new Uint8Array(buffer), { status: 200, headers });
 }

@@ -8,6 +8,31 @@ import { logActivity } from "@/lib/activity";
 import { sendEmail, ticketReplyEmailHtml } from "@/lib/email";
 import { TicketStatus, UserRole } from "@prisma/client";
 
+async function staffEmailsForClient(clientId: string): Promise<string[]> {
+  const [admins, assignments] = await Promise.all([
+    prisma.user.findMany({
+      where: { role: UserRole.ADMIN, deletedAt: null },
+      select: { email: true },
+    }),
+    prisma.staffClientAssignment.findMany({
+      where: { clientId },
+      select: {
+        staff: {
+          select: {
+            user: { select: { email: true, deletedAt: true } },
+          },
+        },
+      },
+    }),
+  ]);
+
+  const emails = new Set(admins.map((user) => user.email));
+  for (const row of assignments) {
+    if (!row.staff.user.deletedAt) emails.add(row.staff.user.email);
+  }
+  return [...emails];
+}
+
 export async function createTicket(formData: FormData) {
   const user = await requireAuth();
   const subject = formData.get("subject") as string;
@@ -101,22 +126,25 @@ export async function replyToTicket(ticketId: string, formData: FormData) {
     : `${appUrl}/admin/tickets/${ticketId}`;
 
   const notifyEmail = isStaff
-    ? ticket.client.user.email
-    : (await prisma.user.findMany({
-        where: { role: { in: [UserRole.ADMIN, UserRole.STAFF] }, deletedAt: null },
-        select: { email: true },
-      })).map((u) => u.email);
+    ? [ticket.client.user.email]
+    : await staffEmailsForClient(ticket.clientId);
 
-  await sendEmail({
-    to: notifyEmail,
-    subject: `Ticket update: ${ticket.subject}`,
-    html: ticketReplyEmailHtml({
-      ticketSubject: ticket.subject,
-      messagePreview: body.slice(0, 200),
-      ticketUrl,
-      isStaffReply: isStaff,
-    }),
-  });
+  if (notifyEmail.length > 0) {
+    try {
+      await sendEmail({
+        to: notifyEmail,
+        subject: `Ticket update: ${ticket.subject}`,
+        html: ticketReplyEmailHtml({
+          ticketSubject: ticket.subject,
+          messagePreview: body.slice(0, 200),
+          ticketUrl,
+          isStaffReply: isStaff,
+        }),
+      });
+    } catch (err) {
+      console.error("[ticket] notify failed", err);
+    }
+  }
 
   revalidatePath(`/portal/support/${ticketId}`);
   revalidatePath(`/admin/tickets/${ticketId}`);

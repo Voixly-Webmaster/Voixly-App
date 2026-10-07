@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/session-guard";
 import { assertClientAccess } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity";
-import { TaskStatus } from "@prisma/client";
+import { TaskStatus, UserRole } from "@prisma/client";
 import type { TaskFormData } from "@/types/tasks";
 
 async function assertTaskAccess(
@@ -19,6 +19,12 @@ async function assertTaskAccess(
   if (!task) throw new Error("Task not found");
   if (task.clientId) {
     await assertClientAccess(user, task.clientId);
+  } else if (
+    user.role !== UserRole.ADMIN &&
+    task.assigneeId !== user.id &&
+    task.createdById !== user.id
+  ) {
+    throw new Error("Unauthorized");
   }
   return task;
 }

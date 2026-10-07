@@ -56,7 +56,10 @@ export default async function AdminTasksPage() {
       orderBy: [{ scheduledDate: "asc" }, { dueDate: "asc" }, { updatedAt: "desc" }],
     }),
     prisma.dailyWin.findMany({
-      where: { goalDate: goalDateRange(today) },
+      where: {
+        goalDate: goalDateRange(today),
+        userId: user.id,
+      },
       include: { user: { select: { id: true, name: true, email: true } } },
       orderBy: [{ completed: "asc" }, { createdAt: "asc" }],
     }),

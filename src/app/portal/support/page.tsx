@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { createTicket } from "@/actions/tickets";
 import { formatDate } from "@/lib/utils";
 import { MessageSquarePlus } from "lucide-react";
+import { PendingSubmit } from "@/components/shared/pending-submit";
 
 export const metadata: Metadata = {
   title: "Support",
@@ -50,7 +51,7 @@ export default async function PortalSupportPage() {
             <Label htmlFor="body">Message</Label>
             <Textarea id="body" name="body" required rows={4} />
           </div>
-          <Button type="submit">Submit ticket</Button>
+          <PendingSubmit pendingLabel="Submitting…">Submit ticket</PendingSubmit>
         </form>
       </FormPanel>
 

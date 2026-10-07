@@ -43,7 +43,11 @@ export default async function PortalDashboardPage() {
         take: 3,
       }),
       prisma.announcement.findMany({
-        where: { published: true, deletedAt: null },
+        where: {
+          published: true,
+          deletedAt: null,
+          OR: [{ publishAt: null }, { publishAt: { lte: new Date() } }],
+        },
         orderBy: { publishAt: "desc" },
         take: 2,
       }),

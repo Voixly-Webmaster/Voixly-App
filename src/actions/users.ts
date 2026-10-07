@@ -61,6 +61,19 @@ export async function createUser(formData: FormData) {
   revalidatePath(USERS_PATH);
 }
 
+async function assertNotLastAdmin(userId: string) {
+  const remaining = await prisma.user.count({
+    where: {
+      role: UserRole.ADMIN,
+      deletedAt: null,
+      id: { not: userId },
+    },
+  });
+  if (remaining === 0) {
+    throw new Error("Keep at least one active admin");
+  }
+}
+
 export async function updateUserRole(userId: string, formData: FormData) {
   const admin = await requireAdminRole();
   const role = parseRole(formData.get("role"));
@@ -79,6 +92,10 @@ export async function updateUserRole(userId: string, formData: FormData) {
     throw new Error(
       "Client accounts cannot be converted. Create a separate staff/admin account instead."
     );
+  }
+
+  if (user.role === UserRole.ADMIN && role !== UserRole.ADMIN && !user.deletedAt) {
+    await assertNotLastAdmin(userId);
   }
 
   await prisma.user.update({
@@ -128,6 +145,10 @@ export async function setUserActive(userId: string, active: boolean) {
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error("User not found");
+
+  if (!active && user.role === UserRole.ADMIN && !user.deletedAt) {
+    await assertNotLastAdmin(userId);
+  }
 
   await prisma.user.update({
     where: { id: userId },

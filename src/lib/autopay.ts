@@ -44,6 +44,9 @@ export async function chargeInvoiceWithAutopay(invoiceId: string): Promise<{
   });
 
   if (!invoice) return { ok: false, reason: "Invoice not found" };
+  if (invoice.recurringInvoiceId) {
+    return { ok: false, reason: "Recurring invoices are billed by Stripe" };
+  }
 
   const client = invoice.client;
   if (!client.autopayEnabled || !client.stripePaymentMethodId) {
@@ -149,6 +152,7 @@ export async function runMonthlyAutopaySweep(options?: {
         clientId: client.id,
         deletedAt: null,
         status: { in: [InvoiceStatus.SENT, InvoiceStatus.OVERDUE] },
+        recurringInvoiceId: null,
       },
       select: { id: true },
     });

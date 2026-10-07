@@ -43,6 +43,9 @@ export async function uploadFile(formData: FormData) {
     clientId = user.clientId!;
   } else {
     clientId = clientIdInput;
+    if (user.role === UserRole.STAFF && !clientId) {
+      throw new Error("Choose a client for this file");
+    }
     if (clientId) await assertClientAccess(user, clientId);
   }
 
@@ -87,7 +90,9 @@ export async function deleteFile(fileId: string) {
   if (!file) throw new Error("File not found");
 
   if (user.role === UserRole.CLIENT) {
-    if (file.clientId !== user.clientId) throw new Error("Unauthorized");
+    if (file.clientId !== user.clientId || file.uploadedById !== user.id) {
+      throw new Error("Unauthorized");
+    }
   } else {
     await assertClientAccess(user, file.clientId);
   }

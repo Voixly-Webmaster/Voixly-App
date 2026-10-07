@@ -12,6 +12,7 @@ import {
   disableAutopay,
   updateAutopayDay,
 } from "@/actions/autopay";
+import { actionErrorMessage } from "@/lib/action-error";
 import { CreditCard, Loader2 } from "lucide-react";
 
 export function AutopayPanel({
@@ -66,10 +67,7 @@ export function AutopayPanel({
                   await updateAutopayDay(formData);
                   success("Billing day updated");
                 } catch (err) {
-                  error(
-                    "Could not update day",
-                    err instanceof Error ? err.message : undefined
-                  );
+                  error("Could not update day", actionErrorMessage(err));
                 }
               });
             }}
@@ -103,12 +101,10 @@ export function AutopayPanel({
                 startTransition(async () => {
                   try {
                     const { url } = await createAutopaySetupSession();
-                    if (url) window.location.href = url;
+                    if (!url) throw new Error("Stripe did not return a checkout link");
+                    window.location.href = url;
                   } catch (err) {
-                    error(
-                      "Could not update card",
-                      err instanceof Error ? err.message : undefined
-                    );
+                    error("Could not update card", actionErrorMessage(err));
                   }
                 });
               }}
@@ -134,10 +130,7 @@ export function AutopayPanel({
                     await disableAutopay();
                     success("Autopay turned off");
                   } catch (err) {
-                    error(
-                      "Could not disable Autopay",
-                      err instanceof Error ? err.message : undefined
-                    );
+                    error("Could not disable Autopay", actionErrorMessage(err));
                   }
                 });
               }}
@@ -159,12 +152,10 @@ export function AutopayPanel({
               startTransition(async () => {
                 try {
                   const { url } = await createAutopaySetupSession();
-                  if (url) window.location.href = url;
+                  if (!url) throw new Error("Stripe did not return a checkout link");
+                  window.location.href = url;
                 } catch (err) {
-                  error(
-                    "Could not start Autopay setup",
-                    err instanceof Error ? err.message : undefined
-                  );
+                  error("Could not start Autopay setup", actionErrorMessage(err));
                 }
               });
             }}
