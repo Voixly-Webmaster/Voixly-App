@@ -39,12 +39,12 @@ export async function createUser(
     const companyName = String(formData.get("companyName") ?? "").trim();
 
     if (!role) return { error: "Choose a role" };
+    if (role === UserRole.CLIENT) {
+      return { error: "Add customers from Clients → Invite a customer." };
+    }
     if (!email || !email.includes("@")) return { error: "Enter a valid email" };
     if (!name) return { error: "Name is required" };
     if (password.length < 8) return { error: "Password must be at least 8 characters" };
-    if (role === UserRole.CLIENT && !companyName) {
-      return { error: "Company name is required for client accounts" };
-    }
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return { error: "A user with that email already exists" };

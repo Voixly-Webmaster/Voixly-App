@@ -19,7 +19,7 @@ function generatePassword(): string {
 export function CreateUserForm() {
   const { success, error } = useToast();
   const [pending, startTransition] = React.useTransition();
-  const [role, setRole] = React.useState("CLIENT");
+  const [role, setRole] = React.useState("STAFF");
   const [password, setPassword] = React.useState("");
   const formRef = React.useRef<HTMLFormElement>(null);
 
@@ -39,15 +39,11 @@ export function CreateUserForm() {
             }
             success(
               "User created",
-              result.role === "CLIENT"
-                ? result.welcomeSent
-                  ? "A welcome email is on its way. Share the password with them separately."
-                  : "The account was created, but the welcome email did not send. Share the password with them separately."
-                : "Share the password with them securely. It won't be shown again."
+              "Share the password with them securely. It won't be shown again."
             );
             formRef.current?.reset();
             setPassword("");
-            setRole("CLIENT");
+            setRole("STAFF");
           } catch (err) {
             error("Could not create user", actionErrorMessage(err));
           }
@@ -77,24 +73,11 @@ export function CreateUserForm() {
           onChange={(e) => setRole(e.target.value)}
           className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
-          <option value="CLIENT">Client — portal access only</option>
           <option value="STAFF">Staff — assigned clients only</option>
           <option value="ADMIN">Admin — full access</option>
         </select>
       </div>
-      {role === "CLIENT" ? (
-        <div className="space-y-2">
-          <Label htmlFor="new-user-company">Company name</Label>
-          <Input
-            id="new-user-company"
-            name="companyName"
-            required
-            placeholder="Acme Co."
-          />
-        </div>
-      ) : (
-        <div className="hidden sm:block" aria-hidden />
-      )}
+      <div className="hidden sm:block" aria-hidden />
       <div className="space-y-2 sm:col-span-2">
         <Label htmlFor="new-user-password">Temporary password</Label>
         <div className="flex gap-2">

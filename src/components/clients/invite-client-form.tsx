@@ -107,6 +107,9 @@ export function InviteClientForm({
       </div>
       <div className="space-y-2">
         <Label htmlFor="invite-tier">Tier</Label>
+        <p className="text-xs text-muted-foreground">
+          Internal label for your team. It does not change their price.
+        </p>
         <select
           id="invite-tier"
           value={tier}

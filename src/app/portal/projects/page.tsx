@@ -35,7 +35,7 @@ export default async function PortalProjectsPage() {
   const serialized: TaskItem[] = tasks.map((t) => ({
     id: t.id,
     title: t.title,
-    description: t.description,
+    description: t.description?.split("\n").find((line) => line.trim()) ?? null,
     status: t.status,
     priority: t.priority,
     scheduledDate: toDateKey(t.scheduledDate),
@@ -52,14 +52,14 @@ export default async function PortalProjectsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Projects"
-        description="Updates on work assigned to your account"
+        description="Website changes you text us, and other work your team has shared"
       />
 
       {serialized.length === 0 ? (
         <EmptyState
           icon={FolderKanban}
           title="No active projects"
-          description="When your team shares updates, they will appear here."
+          description="When you text a change, it shows up here once your team assigns it."
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">

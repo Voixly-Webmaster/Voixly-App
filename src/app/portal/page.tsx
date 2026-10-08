@@ -201,7 +201,7 @@ export default async function PortalDashboardPage() {
             <EmptyState
               icon={FolderKanban}
               title="No project updates yet"
-              description="When your team shares work, it will show up here."
+              description="When you text a change, it shows up here once your team assigns it."
               className="py-8"
             />
           ) : (
@@ -210,9 +210,16 @@ export default async function PortalDashboardPage() {
                 <div key={t.id} className="flex items-start justify-between gap-3 text-sm">
                   <div className="min-w-0">
                     <p className="font-medium">{t.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Due {formatDate(t.dueDate)}
-                    </p>
+                    {t.description && (
+                      <p className="mt-1 line-clamp-2 text-muted-foreground">
+                        {t.description.split("\n")[0]}
+                      </p>
+                    )}
+                    {t.dueDate && (
+                      <p className="text-xs text-muted-foreground">
+                        Due {formatDate(t.dueDate)}
+                      </p>
+                    )}
                   </div>
                   <TaskStatusBadge status={t.status} />
                 </div>

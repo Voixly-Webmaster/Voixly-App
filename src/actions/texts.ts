@@ -258,7 +258,7 @@ export async function createTaskFromText(input: {
           status: TaskStatus.NEW,
           priority: "medium",
           scheduledDate: new Date(),
-          clientVisible: false,
+          clientVisible: true,
           createdById: user.id,
         },
       });

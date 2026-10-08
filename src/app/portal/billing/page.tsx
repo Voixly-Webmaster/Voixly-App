@@ -71,15 +71,22 @@ export default async function PortalBillingPage({
   }
 
   const unpaidStatuses: InvoiceStatus[] = [InvoiceStatus.SENT, InvoiceStatus.OVERDUE];
-  const balanceDue = invoices
-    .filter((i) => unpaidStatuses.includes(i.status))
-    .reduce((s, i) => s + i.amountCents, 0);
+  const openInvoices = invoices.filter((invoice) => unpaidStatuses.includes(invoice.status));
+  const balanceDue = openInvoices.reduce((sum, invoice) => sum + invoice.amountCents, 0);
+  const billingStarted =
+    Boolean(client?.autopayEnabled) ||
+    invoices.some((invoice) => invoice.status === InvoiceStatus.PAID) ||
+    recurring.some((plan) => plan.status === "ACTIVE" || plan.status === "PAUSED");
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Billing"
-        description="Pay invoices, manage Autopay, and review payment history"
+        description={
+          billingStarted
+            ? "Pay invoices, manage Autopay, and review payment history"
+            : "Pay the invoice below to start. Monthly Autopay is available after this payment."
+        }
       />
 
       {params.paid === "1" && (
@@ -112,40 +119,6 @@ export default async function PortalBillingPage({
         icon={Wallet}
         accent="primary"
       />
-
-      <AutopayPanel
-        enabled={Boolean(client?.autopayEnabled)}
-        autopayDay={client?.autopayDay ?? 1}
-        cardHint={cardHint}
-      />
-
-      {recurring.length > 0 && (
-        <Panel
-          title="Your subscriptions"
-          description="Automatic charges after you subscribe"
-          accent="secondary"
-        >
-          <DataTable headers={["Plan", "Amount", "Interval", "Status", "Next bill"]}>
-            {recurring.map((r) => (
-              <DataTableRow key={r.id}>
-                <DataTableCell className="font-medium">{r.title}</DataTableCell>
-                <DataTableCell>{formatCurrency(r.amountCents)}</DataTableCell>
-                <DataTableCell className="capitalize">
-                  {intervalLabel(r.interval)}
-                </DataTableCell>
-                <DataTableCell>
-                  <Badge variant={r.status === "ACTIVE" ? "success" : "secondary"}>
-                    {recurringStatusLabel(r.status)}
-                  </Badge>
-                </DataTableCell>
-                <DataTableCell>
-                  {r.status === "PENDING" ? "After first payment" : formatDate(r.nextBillingAt)}
-                </DataTableCell>
-              </DataTableRow>
-            ))}
-          </DataTable>
-        </Panel>
-      )}
 
       <div className="space-y-4">
         <h2 className="text-lg font-semibold tracking-tight">Invoices</h2>
@@ -188,6 +161,42 @@ export default async function PortalBillingPage({
           })}
         </DataTable>
       </div>
+
+      {billingStarted && (
+        <AutopayPanel
+          enabled={Boolean(client?.autopayEnabled)}
+          autopayDay={client?.autopayDay ?? 1}
+          cardHint={cardHint}
+        />
+      )}
+
+      {billingStarted && recurring.length > 0 && (
+        <Panel
+          title="Your subscriptions"
+          description="Automatic charges after you subscribe"
+          accent="secondary"
+        >
+          <DataTable headers={["Plan", "Amount", "Interval", "Status", "Next bill"]}>
+            {recurring.map((r) => (
+              <DataTableRow key={r.id}>
+                <DataTableCell className="font-medium">{r.title}</DataTableCell>
+                <DataTableCell>{formatCurrency(r.amountCents)}</DataTableCell>
+                <DataTableCell className="capitalize">
+                  {intervalLabel(r.interval)}
+                </DataTableCell>
+                <DataTableCell>
+                  <Badge variant={r.status === "ACTIVE" ? "success" : "secondary"}>
+                    {recurringStatusLabel(r.status)}
+                  </Badge>
+                </DataTableCell>
+                <DataTableCell>
+                  {r.status === "PENDING" ? "After first payment" : formatDate(r.nextBillingAt)}
+                </DataTableCell>
+              </DataTableRow>
+            ))}
+          </DataTable>
+        </Panel>
+      )}
 
       <div className="space-y-4">
         <h2 className="text-lg font-semibold tracking-tight">Payment history</h2>

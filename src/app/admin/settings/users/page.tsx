@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Team",
-  description: "Invite and manage staff and admin users.",
+  description: "Add staff and admins. Customers are invited from Clients.",
 };
 
 const roleBadge: Record<string, string> = {
@@ -36,8 +36,8 @@ export default async function UsersSettingsPage() {
   return (
     <div className="space-y-6">
       <FormPanel
-        title="Add user"
-        description="Create admin, staff, or client accounts"
+        title="Add teammate"
+        description="Staff and admins only. Invite a customer from Clients so their service and first invoice are ready."
         icon={UserPlus}
       >
         <CreateUserForm />

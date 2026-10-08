@@ -210,7 +210,10 @@ export function MakeTaskButton({
               error("Could not create task", result.error);
               return;
             }
-            success("Task created", "It's on the task list for the person you assigned.");
+            success(
+              "Task created",
+              "It's assigned, and the customer can see it under Projects."
+            );
             setOpen(false);
             router.refresh();
           } catch (err) {
@@ -245,6 +248,9 @@ export function MakeTaskButton({
           ))}
         </select>
       </div>
+      <p className="text-xs text-muted-foreground">
+        They will see this title and their text on Projects.
+      </p>
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={pending || !title.trim() || !assigneeId}>
           {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
