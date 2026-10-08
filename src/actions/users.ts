@@ -11,6 +11,7 @@ import { logActivity } from "@/lib/activity";
 import { revokeSignInMaterial } from "@/lib/auth-codes";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
 import { storedFilePath } from "@/lib/uploads";
+import { sendTeamSetupInvite } from "@/actions/invites";
 
 const USERS_PATH = "/admin/settings/users";
 
@@ -27,7 +28,11 @@ function databaseCode(err: unknown): string | null {
 
 export async function createUser(
   formData: FormData
-): Promise<{ welcomeSent: boolean; role: UserRole } | { error: string }> {
+): Promise<
+  | { invited: false; role: UserRole }
+  | { invited: true; emailSent: boolean; role: UserRole }
+  | { error: string }
+> {
   try {
     const admin = await requireAdminRole();
 
@@ -35,6 +40,7 @@ export async function createUser(
     const name = String(formData.get("name") ?? "").trim();
     const password = String(formData.get("password") ?? "");
     const role = parseRole(formData.get("role"));
+    const invite = formData.get("invite") === "on";
 
     if (!role) return { error: "Choose a role" };
     if (role === UserRole.CLIENT) {
@@ -42,37 +48,39 @@ export async function createUser(
     }
     if (!email || !email.includes("@")) return { error: "Enter a valid email" };
     if (!name) return { error: "Name is required" };
-    if (password.length < 8) return { error: "Password must be at least 8 characters" };
+    if (!invite && password.length < 8) return { error: "Password must be at least 8 characters" };
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return { error: "A user with that email already exists" };
-
-    const passwordHash = await bcrypt.hash(password, 12);
 
     const user = await prisma.user.create({
       data: {
         email,
         name,
         role,
-        passwordHash,
+        ...(invite ? {} : { passwordHash: await bcrypt.hash(password, 12) }),
         staffProfile: { create: {} },
       },
     });
 
+    const emailSent = invite
+      ? await sendTeamSetupInvite({ userId: user.id, email, name, role })
+      : false;
+
     try {
       await logActivity({
         actorId: admin.id,
-        action: "user.created",
+        action: invite ? "user.invited" : "user.created",
         entityType: "user",
         entityId: user.id,
-        metadata: { email, role },
+        metadata: { email, role, ...(invite ? { emailSent } : {}) },
       });
     } catch (err) {
       console.error("[users] activity log failed", err);
     }
 
     revalidatePath(USERS_PATH);
-    return { welcomeSent: false, role };
+    return invite ? { invited: true, emailSent, role } : { invited: false, role };
   } catch (err) {
     unstable_rethrow(err);
     console.error("[users] create failed", err);

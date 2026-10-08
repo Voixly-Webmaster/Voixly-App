@@ -21,6 +21,7 @@ export function CreateUserForm() {
   const [pending, startTransition] = React.useTransition();
   const [role, setRole] = React.useState("STAFF");
   const [password, setPassword] = React.useState("");
+  const [invite, setInvite] = React.useState(false);
   const formRef = React.useRef<HTMLFormElement>(null);
 
   return (
@@ -37,12 +38,22 @@ export function CreateUserForm() {
               error("Could not create user", result.error);
               return;
             }
-            success(
-              "User created",
-              "Share the password with them securely. It won't be shown again."
-            );
+            if (result.invited) {
+              success(
+                result.emailSent ? "Invite sent" : "Teammate added",
+                result.emailSent
+                  ? "They'll get a link to choose a password and add their mobile number."
+                  : "The account is ready, but the email did not send. Resend the invite from the list."
+              );
+            } else {
+              success(
+                "User created",
+                "Share the password with them securely. It won't be shown again."
+              );
+            }
             formRef.current?.reset();
             setPassword("");
+            setInvite(false);
             setRole("STAFF");
           } catch (err) {
             error("Could not create user", actionErrorMessage(err));
@@ -77,40 +88,58 @@ export function CreateUserForm() {
           <option value="ADMIN">Admin — full access</option>
         </select>
       </div>
-      <div className="hidden sm:block" aria-hidden />
-      <div className="space-y-2 sm:col-span-2">
-        <Label htmlFor="new-user-password">Temporary password</Label>
-        <div className="flex gap-2">
-          <Input
-            id="new-user-password"
-            name="password"
-            type="text"
-            required
-            minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="At least 8 characters"
-            autoComplete="new-password"
-            className="font-mono"
+      <div className="sm:col-span-2">
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="invite"
+            checked={invite}
+            onChange={(e) => setInvite(e.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-input"
           />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setPassword(generatePassword())}
-          >
-            <RefreshCw className="h-4 w-4" aria-hidden />
-            Generate
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Copy it before saving — passwords are stored hashed and can&apos;t be
-          viewed later.
-        </p>
+          <span>
+            <span className="font-medium text-foreground">Invite them to set up their account</span>
+            <span className="mt-0.5 block text-muted-foreground">
+              Email a link so they choose a password and add their mobile number. The link expires in 7 days.
+            </span>
+          </span>
+        </label>
       </div>
+      {!invite && (
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="new-user-password">Temporary password</Label>
+          <div className="flex gap-2">
+            <Input
+              id="new-user-password"
+              name="password"
+              type="text"
+              required
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 8 characters"
+              autoComplete="new-password"
+              className="font-mono"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPassword(generatePassword())}
+            >
+              <RefreshCw className="h-4 w-4" aria-hidden />
+              Generate
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Copy it before saving — passwords are stored hashed and can&apos;t be
+            viewed later.
+          </p>
+        </div>
+      )}
       <div className="sm:col-span-2">
         <Button type="submit" disabled={pending}>
           {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-          Create user
+          {invite ? "Send invite" : "Create user"}
         </Button>
       </div>
     </form>

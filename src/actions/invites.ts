@@ -56,6 +56,12 @@ async function issueInvite(userId: string): Promise<string> {
   return raw;
 }
 
+function roleLabel(role: UserRole): string {
+  if (role === UserRole.ADMIN) return "Admin";
+  if (role === UserRole.STAFF) return "Staff";
+  return "Client";
+}
+
 async function sendInviteEmail(params: {
   email: string;
   name: string;
@@ -94,6 +100,78 @@ async function sendInviteEmail(params: {
 
 async function setupUrlFor(raw: string): Promise<string> {
   return `${await getAppUrl()}/invite?token=${encodeURIComponent(raw)}`;
+}
+
+export async function sendTeamSetupInvite(params: {
+  userId: string;
+  email: string;
+  name: string;
+  role: UserRole;
+}): Promise<boolean> {
+  const raw = await issueInvite(params.userId);
+  const setupUrl = await setupUrlFor(raw);
+  try {
+    const rendered = await renderEmail("team-invite", {
+      greeting: params.name ? `Hi ${params.name},` : "Hi,",
+      name: params.name,
+      email: params.email,
+      role: roleLabel(params.role),
+      url: setupUrl,
+    });
+    const result = await sendEmail({
+      to: params.email,
+      subject: rendered.subject,
+      html: rendered.html,
+    });
+    if ("dev" in result && result.dev && process.env.NODE_ENV === "production") return false;
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[invite]", params.email, setupUrl);
+    }
+    return result.ok;
+  } catch (err) {
+    console.error("[invite] team email failed", err);
+    return false;
+  }
+}
+
+export async function resendTeamInvite(
+  userId: string
+): Promise<{ ok: true; emailSent: boolean } | { error: string }> {
+  try {
+    const admin = await requireAdminRole();
+    if (!userId) return { error: "Choose a teammate" };
+    const user = await prisma.user.findFirst({
+      where: { id: userId, deletedAt: null, role: { in: [UserRole.STAFF, UserRole.ADMIN] } },
+    });
+    if (!user) return { error: "That teammate was not found" };
+    if (user.passwordHash) return { error: "This teammate already finished setup" };
+
+    const emailSent = await sendTeamSetupInvite({
+      userId: user.id,
+      email: user.email,
+      name: user.name ?? "",
+      role: user.role,
+    });
+
+    try {
+      await logActivity({
+        actorId: admin.id,
+        action: "user.invite_resent",
+        entityType: "user",
+        entityId: user.id,
+        metadata: { email: user.email, emailSent },
+      });
+    } catch (err) {
+      console.error("[invite] activity log failed", err);
+    }
+
+    revalidatePath("/admin/settings/users");
+    return { ok: true, emailSent };
+  } catch (err) {
+    unstable_rethrow(err);
+    console.error("[invite] team resend failed", err);
+    return { error: "Could not resend the invite. Try again." };
+  }
 }
 
 export async function inviteClient(
@@ -275,6 +353,8 @@ export async function resendClientInvite(
 export type InvitePreview = {
   email: string;
   name: string;
+  kind: "client" | "team";
+  roleLabel: string;
   company: string;
   product: string;
   description: string | null;
@@ -306,12 +386,28 @@ export async function getInvitePreview(token: string): Promise<InvitePreview | n
   });
   if (!invite || invite.usedAt || invite.expiresAt.getTime() < Date.now()) return null;
   const user = invite.user;
+  if (user.deletedAt || user.passwordHash) return null;
   const client = user.clientProfile;
-  if (!client || user.deletedAt || user.passwordHash || user.role !== UserRole.CLIENT) return null;
+  if (user.role === UserRole.STAFF || user.role === UserRole.ADMIN) {
+    return {
+      email: user.email,
+      name: user.name ?? "",
+      kind: "team",
+      roleLabel: roleLabel(user.role),
+      company: "",
+      product: "",
+      description: null,
+      amount: "",
+      interval: "",
+    };
+  }
+  if (!client || user.role !== UserRole.CLIENT) return null;
   const service = client.recurringInvoices[0];
   return {
     email: user.email,
     name: client.contactName ?? user.name ?? "",
+    kind: "client",
+    roleLabel: "Client",
     company: client.companyName,
     product: service?.product?.name ?? service?.title ?? "your Voixly service",
     description: service?.product?.description ?? service?.description ?? null,
@@ -343,19 +439,23 @@ export async function completeAccountSetup(input: {
       where: { tokenHash: inviteHash(raw) },
       include: { user: { include: { clientProfile: true } } },
     });
+    const teamRole =
+      invite?.user.role === UserRole.STAFF || invite?.user.role === UserRole.ADMIN;
     if (
       !invite ||
       invite.usedAt ||
       invite.expiresAt.getTime() < Date.now() ||
       invite.user.deletedAt ||
       invite.user.passwordHash ||
-      !invite.user.clientProfile
+      (invite.user.role === UserRole.CLIENT && !invite.user.clientProfile) ||
+      (!teamRole && invite.user.role !== UserRole.CLIENT)
     ) {
       return { error: "This invite link has expired. Ask Voixly to send a new one." };
     }
 
     const now = new Date();
     const passwordHash = await bcrypt.hash(input.password, 12);
+    const clientId = invite.user.clientProfile?.id;
     await prisma.$transaction(async (tx) => {
       const claimed = await tx.accountInvite.updateMany({
         where: { id: invite.id, usedAt: null },
@@ -371,25 +471,36 @@ export async function completeAccountSetup(input: {
           smsConsentAt: now,
         },
       });
-      await tx.client.update({
-        where: { id: invite.user.clientProfile!.id },
-        data: { phone },
-      });
+      if (clientId) {
+        await tx.client.update({
+          where: { id: clientId },
+          data: { phone },
+        });
+      }
     });
 
     try {
-      await logActivity({
-        clientId: invite.user.clientProfile.id,
-        action: "client.setup_completed",
-        entityType: "client",
-        entityId: invite.user.clientProfile.id,
-      });
+      await logActivity(
+        clientId
+          ? {
+              clientId,
+              action: "client.setup_completed",
+              entityType: "client",
+              entityId: clientId,
+            }
+          : {
+              action: "user.setup_completed",
+              entityType: "user",
+              entityId: invite.userId,
+            }
+      );
     } catch (err) {
       console.error("[invite] activity log failed", err);
     }
 
     revalidatePath("/portal");
     revalidatePath("/admin/clients");
+    revalidatePath("/admin/settings/users");
     return { ok: true };
   } catch (err) {
     unstable_rethrow(err);

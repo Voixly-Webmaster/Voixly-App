@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Team",
-  description: "Add staff and admins. Customers are invited from Clients.",
+  description: "Add staff and admins, or email them a setup link. Customers are invited from Clients.",
 };
 
 const roleBadge: Record<string, string> = {
@@ -37,7 +37,7 @@ export default async function UsersSettingsPage() {
     <div className="space-y-6">
       <FormPanel
         title="Add teammate"
-        description="Staff and admins only. Invite a customer from Clients so their service and first invoice are ready."
+        description="Set a password, or email them a link to set up their own account. Invite a customer from Clients so their service and first invoice are ready."
         icon={UserPlus}
       >
         <CreateUserForm />
@@ -74,13 +74,17 @@ export default async function UsersSettingsPage() {
                 {u.clientProfile?.companyName ?? "—"}
               </DataTableCell>
               <DataTableCell>
-                {active ? (
-                  <span className="rounded-full bg-success-muted px-2.5 py-0.5 text-xs font-medium text-success-foreground">
-                    Active
-                  </span>
-                ) : (
+                {!active ? (
                   <span className="rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive">
                     Deactivated
+                  </span>
+                ) : !u.passwordHash ? (
+                  <span className="rounded-full bg-warning-muted px-2.5 py-0.5 text-xs font-medium text-warning-foreground">
+                    Waiting for setup
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-success-muted px-2.5 py-0.5 text-xs font-medium text-success-foreground">
+                    Active
                   </span>
                 )}
               </DataTableCell>
@@ -95,6 +99,7 @@ export default async function UsersSettingsPage() {
                   companyName={u.clientProfile?.companyName ?? null}
                   role={u.role}
                   active={active}
+                  pendingSetup={!u.passwordHash}
                   isSelf={u.id === admin.id}
                   twoFactor={u.twoFactorEmail || u.twoFactorSms}
                 />

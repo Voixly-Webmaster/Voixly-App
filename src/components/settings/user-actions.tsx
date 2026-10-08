@@ -21,10 +21,12 @@ import {
   setUserActive,
   deleteUser,
 } from "@/actions/users";
+import { resendTeamInvite } from "@/actions/invites";
 import { clearUserTwoFactor } from "@/actions/account-access";
 import {
   KeyRound,
   Loader2,
+  Mail,
   ShieldCheck,
   ShieldOff,
   Trash2,
@@ -39,6 +41,7 @@ export function UserActions({
   companyName,
   role,
   active,
+  pendingSetup,
   isSelf,
   twoFactor,
 }: {
@@ -48,6 +51,7 @@ export function UserActions({
   companyName: string | null;
   role: "ADMIN" | "STAFF" | "CLIENT";
   active: boolean;
+  pendingSetup: boolean;
   isSelf: boolean;
   twoFactor: boolean;
 }) {
@@ -77,6 +81,36 @@ export function UserActions({
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-1.5">
+      {pendingSetup && role !== "CLIENT" && active && (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={pending}
+          title="Resend setup invite"
+          onClick={() => {
+            startTransition(async () => {
+              try {
+                const result = await resendTeamInvite(userId);
+                if ("error" in result) {
+                  error("Could not resend invite", result.error);
+                  return;
+                }
+                success(
+                  result.emailSent ? "Invite sent" : "Invite not emailed",
+                  result.emailSent
+                    ? "A new setup link is on its way. The previous link no longer works."
+                    : "The account is still waiting, but the email did not send."
+                );
+              } catch (err) {
+                error("Could not resend invite", actionErrorMessage(err));
+              }
+            });
+          }}
+        >
+          <Mail className="h-3.5 w-3.5" aria-hidden />
+          Resend invite
+        </Button>
+      )}
       {role !== "CLIENT" && (
         <Button
           variant="outline"

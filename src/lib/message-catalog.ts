@@ -164,6 +164,46 @@ export const MESSAGE_FLOWS: MessageFlow[] = [
     ],
   },
   {
+    id: "team-invite",
+    group: "Account",
+    name: "Team invite",
+    when: "An admin invites a staff member or admin to set up their account",
+    audience: "The new teammate",
+    layout: "plain",
+    buttonHref: "url",
+    tokens: [
+      { token: "greeting", label: "Hi, or Hi and their name", sample: "Hi Jordan Lee," },
+      { token: "name", label: "Name", sample: "Jordan Lee" },
+      { token: "email", label: "Login email", sample: "jordan@voixly.com" },
+      { token: "role", label: "Role", sample: "Staff" },
+      { token: "url", label: "Setup link", sample: "https://app.voixly.com/invite" },
+    ],
+    fields: [
+      { key: "subject", label: "Subject", defaultValue: "Set up your Voixly account" },
+      {
+        key: "preheader",
+        label: "Preview text",
+        defaultValue: "Finish setting up your Voixly team account.",
+      },
+      { key: "title", label: "Heading", defaultValue: "You're invited" },
+      {
+        key: "body",
+        label: "Body",
+        multiline: true,
+        defaultValue:
+          "{{greeting}}\n\nYou have a Voixly team account as {{role}}. Choose a password and add your mobile number to finish setup.",
+      },
+      { key: "button", label: "Button", defaultValue: "Set up your account" },
+      {
+        key: "footnote",
+        label: "Footnote",
+        multiline: true,
+        defaultValue:
+          "This link expires in 7 days and is for {{email}}. If you were not expecting it, you can ignore this email.",
+      },
+    ],
+  },
+  {
     id: "invoice",
     group: "Billing",
     name: "Invoice",

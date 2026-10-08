@@ -1,5 +1,8 @@
 const ACTION_LABELS: Record<string, string> = {
   "user.created": "Created user",
+  "user.invited": "Invited a teammate",
+  "user.invite_resent": "Resent a teammate invite",
+  "user.setup_completed": "Teammate finished account setup",
   "user.password_changed": "Changed password",
   "user.password_reset": "Reset a user's password",
   "user.two_factor_enabled": "Turned on sign-in codes",

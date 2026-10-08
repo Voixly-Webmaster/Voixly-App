@@ -42,15 +42,24 @@ export function AccountSetupForm({
       }}
     >
       <div className="rounded-lg border border-border/80 bg-muted/40 px-3 py-3 text-sm">
-        <p className="font-medium text-foreground">{preview.product}</p>
-        <p className="mt-1 text-muted-foreground">
-          {preview.company}
-          {preview.amount ? ` · ${preview.amount}` : ""}
-          {preview.interval ? ` ${preview.interval}` : ""}
-        </p>
-        {preview.description ? (
-          <p className="mt-2 text-muted-foreground">{preview.description}</p>
-        ) : null}
+        {preview.kind === "team" ? (
+          <>
+            <p className="font-medium text-foreground">Voixly team</p>
+            <p className="mt-1 text-muted-foreground">You&apos;ll join as {preview.roleLabel}.</p>
+          </>
+        ) : (
+          <>
+            <p className="font-medium text-foreground">{preview.product}</p>
+            <p className="mt-1 text-muted-foreground">
+              {preview.company}
+              {preview.amount ? ` · ${preview.amount}` : ""}
+              {preview.interval ? ` ${preview.interval}` : ""}
+            </p>
+            {preview.description ? (
+              <p className="mt-2 text-muted-foreground">{preview.description}</p>
+            ) : null}
+          </>
+        )}
       </div>
 
       {error && (
@@ -107,8 +116,9 @@ export function AccountSetupForm({
           className="mt-1 h-4 w-4 rounded border-input"
         />
         <span>
-          I agree to receive text messages from Voixly at this number about my
-          account, invoices, and updates.
+          {preview.kind === "team"
+            ? "I agree to receive text messages from Voixly at this number about my account."
+            : "I agree to receive text messages from Voixly at this number about my account, invoices, and updates."}
         </span>
       </label>
       <Button type="submit" className="w-full" disabled={pending}>
