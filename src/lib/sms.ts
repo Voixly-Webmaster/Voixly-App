@@ -2,6 +2,19 @@ import { getSettings } from "@/lib/settings";
 
 const DEFAULT_ENDPOINT = "https://sms.voidfix.com/services/send.php";
 
+function voidfixErrorMessage(payload: unknown, status: number, parsed: boolean): string {
+  if (!parsed) return `VoidFix returned an unexpected response (HTTP ${status}).`;
+  if (typeof payload === "object" && payload !== null) {
+    const error = (payload as { error?: unknown }).error;
+    if (typeof error === "string" && error.trim()) return error.trim();
+    if (typeof error === "object" && error !== null) {
+      const message = (error as { message?: unknown }).message;
+      if (typeof message === "string" && message.trim()) return message.trim();
+    }
+  }
+  return `VoidFix rejected the message (HTTP ${status}).`;
+}
+
 export async function voidfixConfigured(): Promise<boolean> {
   const settings = await getSettings(["voidfix.apiKey"]);
   return Boolean(settings["voidfix.apiKey"]);
@@ -45,15 +58,22 @@ export async function sendSms(params: { to: string; message: string }) {
     return { ok: false as const, error: "Could not reach VoidFix" };
   }
 
-  let payload: { success?: boolean; error?: { message?: string } | null } = {};
+  let payload: unknown = null;
+  let parsed = false;
   try {
-    payload = (await response.json()) as typeof payload;
+    payload = await response.json();
+    parsed = true;
   } catch {
-    payload = {};
+    payload = null;
   }
 
-  if (!response.ok || payload.success !== true) {
-    const message = payload.error?.message || "VoidFix rejected the message";
+  const success =
+    typeof payload === "object" &&
+    payload !== null &&
+    (payload as { success?: unknown }).success === true;
+
+  if (!response.ok || !success) {
+    const message = voidfixErrorMessage(payload, response.status, parsed);
     console.error("[sms]", message);
     return { ok: false as const, error: message };
   }

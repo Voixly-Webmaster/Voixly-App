@@ -22,7 +22,11 @@ export function TestSmsButton() {
         if (pending) return;
         startTransition(async () => {
           try {
-            await sendTestSms(phone);
+            const result = await sendTestSms(phone);
+            if (!result.ok) {
+              error("Could not send test text", result.error);
+              return;
+            }
             success("Test text sent", `Check ${phone}`);
           } catch (err) {
             error("Could not send test text", actionErrorMessage(err));

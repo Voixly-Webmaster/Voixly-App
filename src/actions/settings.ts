@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { unstable_rethrow } from "next/navigation";
 import { requireAdminRole } from "@/lib/session-guard";
 import { setSetting, SETTING_DEFS, type SettingKey } from "@/lib/settings";
 import { logActivity } from "@/lib/activity";
@@ -42,47 +43,73 @@ export async function saveSettings(keys: SettingKey[], formData: FormData) {
 }
 
 export async function sendTestEmail() {
-  const admin = await requireAdminRole();
-  const { sendEmail } = await import("@/lib/email");
-  const result = await sendEmail({
-    to: admin.email,
-    subject: "Voixly test email",
-    html: `<p>Resend is connected. This test was sent to ${admin.email}.</p>`,
-  });
-  if ("dev" in result && result.dev) {
-    throw new Error("Resend API key is not set — add it above or in RESEND_API_KEY.");
-  }
-  if (!result.ok) {
-    throw new Error("Resend rejected the message. Check the from address and domain.");
-  }
+  try {
+    const admin = await requireAdminRole();
+    const { sendEmail } = await import("@/lib/email");
+    const result = await sendEmail({
+      to: admin.email,
+      subject: "Voixly test email",
+      html: `<p>Resend is connected. This test was sent to ${admin.email}.</p>`,
+    });
+    if ("dev" in result && result.dev) {
+      return {
+        ok: false as const,
+        error: "Resend API key is not set — add it above or in RESEND_API_KEY.",
+      };
+    }
+    if (!result.ok) {
+      return {
+        ok: false as const,
+        error: "Resend rejected the message. Check the from address and domain.",
+      };
+    }
 
-  await logActivity({
-    actorId: admin.id,
-    action: "settings.test_email",
-    entityType: "settings",
-  });
+    await logActivity({
+      actorId: admin.id,
+      action: "settings.test_email",
+      entityType: "settings",
+    });
+    return { ok: true as const };
+  } catch (err) {
+    unstable_rethrow(err);
+    console.error("[email] test failed", err);
+    return { ok: false as const, error: "Could not send the test email. Try again." };
+  }
 }
 
 export async function sendTestSms(phone: string) {
-  const admin = await requireAdminRole();
-  const to = normalizePhone(phone);
-  if (!to) {
-    throw new Error("Enter a mobile number with country code, like +1 555 123 4567");
-  }
+  try {
+    const admin = await requireAdminRole();
+    const to = normalizePhone(phone);
+    if (!to) {
+      return {
+        ok: false as const,
+        error: "Enter a mobile number with country code, like +1 555 123 4567",
+      };
+    }
 
-  const { sendSms } = await import("@/lib/sms");
-  const result = await sendSms({
-    to,
-    message: "Voixly is connected to VoidFix. This is a test text.",
-  });
-  if ("dev" in result && result.dev) {
-    throw new Error("VoidFix API key is not set — add it above or in VOIDFIX_API_KEY.");
-  }
-  if (!result.ok) throw new Error(result.error);
+    const { sendSms } = await import("@/lib/sms");
+    const result = await sendSms({
+      to,
+      message: "Voixly is connected to VoidFix. This is a test text.",
+    });
+    if ("dev" in result && result.dev) {
+      return {
+        ok: false as const,
+        error: "VoidFix API key is not set — add it above or in VOIDFIX_API_KEY.",
+      };
+    }
+    if (!result.ok) return { ok: false as const, error: result.error };
 
-  await logActivity({
-    actorId: admin.id,
-    action: "settings.test_sms",
-    entityType: "settings",
-  });
+    await logActivity({
+      actorId: admin.id,
+      action: "settings.test_sms",
+      entityType: "settings",
+    });
+    return { ok: true as const };
+  } catch (err) {
+    unstable_rethrow(err);
+    console.error("[sms] test failed", err);
+    return { ok: false as const, error: "Could not send the test text. Try again." };
+  }
 }
