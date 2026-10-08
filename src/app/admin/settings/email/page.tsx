@@ -22,7 +22,7 @@ export default async function EmailSettingsPage() {
   return (
     <FormPanel
       title="Email (Resend)"
-      description="Invoices, ticket replies, password resets, and email sign-in codes"
+      description="Invoices, announcements, tickets, failed payments, password resets, and sign-in codes"
       icon={Mail}
     >
       {!apiKey.isSet && (

@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { requireAdminRole } from "@/lib/session-guard";
 import { logActivity } from "@/lib/activity";
 import { revokeSignInMaterial } from "@/lib/auth-codes";
+import { sendClientWelcome } from "@/lib/email";
 
 const USERS_PATH = "/admin/settings/users";
 
@@ -59,7 +60,17 @@ export async function createUser(formData: FormData) {
     metadata: { email, role },
   });
 
+  const welcomeSent =
+    role === UserRole.CLIENT
+      ? await sendClientWelcome({
+          email,
+          name,
+          companyName,
+        })
+      : false;
+
   revalidatePath(USERS_PATH);
+  return { welcomeSent, role };
 }
 
 async function assertNotLastAdmin(userId: string) {

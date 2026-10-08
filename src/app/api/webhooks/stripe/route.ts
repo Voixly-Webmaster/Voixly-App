@@ -356,6 +356,14 @@ async function handleStripeInvoiceFailed(stripeInvoice: Stripe.Invoice) {
     entityId: recurring.id,
     metadata: { stripeInvoiceId: stripeInvoice.id },
   });
+
+  const { notifyPaymentFailed } = await import("@/lib/outreach");
+  await notifyPaymentFailed({
+    clientId: recurring.clientId,
+    invoiceNumber,
+    title: recurring.title,
+    amountCents,
+  });
 }
 
 async function handleSubscriptionChange(subscription: Stripe.Subscription) {

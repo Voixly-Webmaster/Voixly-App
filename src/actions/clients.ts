@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/session-guard";
 import { assertClientAccess } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity";
+import { sendClientWelcome } from "@/lib/email";
 import { ClientTier, UserRole } from "@prisma/client";
 
 function parseClientTier(value: unknown): ClientTier | null {
@@ -20,7 +21,9 @@ function parseClientTier(value: unknown): ClientTier | null {
   return null;
 }
 
-export async function createClient(formData: FormData) {
+export async function createClient(
+  formData: FormData
+): Promise<{ welcomeSent: boolean } | { error: string }> {
   const user = await requireAdmin();
   if (user.role !== UserRole.ADMIN) throw new Error("Unauthorized");
 
@@ -32,15 +35,15 @@ export async function createClient(formData: FormData) {
   const tier = parseClientTier(formData.get("tier"));
 
   if (!email || !password || !companyName) {
-    throw new Error("Email, password, and company name required");
+    return { error: "Email, password, and company name are required" };
   }
-  if (!email.includes("@")) throw new Error("Valid email is required");
+  if (!email.includes("@")) return { error: "Enter a valid email" };
   if (password.length < 8) {
-    throw new Error("Password must be at least 8 characters");
+    return { error: "Password must be at least 8 characters" };
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) throw new Error("A user with that email already exists");
+  if (existing) return { error: "A user with that email already exists" };
 
   const passwordHash = await bcrypt.hash(password, 12);
 
@@ -65,7 +68,14 @@ export async function createClient(formData: FormData) {
     entityId: clientUser.clientProfile?.id,
   });
 
+  const welcomeSent = await sendClientWelcome({
+    email,
+    name: contactName,
+    companyName,
+  });
+
   revalidatePath("/admin/clients");
+  return { welcomeSent };
 }
 
 export async function addClientNote(clientId: string, formData: FormData) {

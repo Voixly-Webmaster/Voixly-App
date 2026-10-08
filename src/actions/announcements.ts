@@ -3,9 +3,37 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAdminRole } from "@/lib/session-guard";
+import { logActivity } from "@/lib/activity";
+import { announcementEmailHtml } from "@/lib/email";
+import { broadcastToClients } from "@/lib/outreach";
+import type { BroadcastResult } from "@/lib/delivery-summary";
 
-export async function createAnnouncement(formData: FormData) {
-  await requireAdminRole();
+function revalidateAnnouncements() {
+  revalidatePath("/admin/announcements");
+  revalidatePath("/portal/announcements");
+  revalidatePath("/portal");
+}
+
+async function notifyAnnouncement(announcement: { id: string; title: string; body: string }) {
+  const { getAppUrl } = await import("@/lib/app-url");
+  const url = `${await getAppUrl()}/portal/announcements`;
+  const excerpt = announcement.body.replace(/\s+/g, " ").trim();
+  const short = excerpt.length > 140 ? `${excerpt.slice(0, 137)}…` : excerpt;
+  return broadcastToClients({
+    subject: announcement.title,
+    html: announcementEmailHtml({
+      title: announcement.title,
+      body: announcement.body,
+      url,
+    }),
+    sms: `Voixly: ${announcement.title}. ${short} ${url}`.slice(0, 480),
+  });
+}
+
+export async function createAnnouncement(formData: FormData): Promise<{
+  delivery: BroadcastResult | null;
+}> {
+  const admin = await requireAdminRole();
 
   const title = (formData.get("title") as string)?.trim();
   const body = (formData.get("body") as string)?.trim();
@@ -13,7 +41,7 @@ export async function createAnnouncement(formData: FormData) {
 
   if (!title || !body) throw new Error("Title and body required");
 
-  await prisma.announcement.create({
+  const announcement = await prisma.announcement.create({
     data: {
       title,
       body,
@@ -22,16 +50,33 @@ export async function createAnnouncement(formData: FormData) {
     },
   });
 
-  revalidatePath("/admin/announcements");
-  revalidatePath("/portal/announcements");
-  revalidatePath("/portal");
+  const delivery = publish ? await notifyAnnouncement(announcement) : null;
+
+  await logActivity({
+    actorId: admin.id,
+    action: publish ? "announcement.published" : "announcement.created",
+    entityType: "announcement",
+    entityId: announcement.id,
+    metadata: delivery
+      ? { emailed: delivery.emailed, texted: delivery.texted }
+      : undefined,
+  });
+  revalidateAnnouncements();
+  return { delivery };
 }
 
-export async function setAnnouncementPublished(formData: FormData) {
-  await requireAdminRole();
+export async function setAnnouncementPublished(
+  formData: FormData
+): Promise<BroadcastResult | null> {
+  const admin = await requireAdminRole();
   const id = String(formData.get("id") ?? "").trim();
   const published = formData.get("published") === "true";
   if (!id) throw new Error("Announcement is required");
+
+  const current = await prisma.announcement.findFirst({
+    where: { id, deletedAt: null },
+  });
+  if (!current) throw new Error("Announcement not found");
 
   await prisma.announcement.update({
     where: { id },
@@ -41,13 +86,27 @@ export async function setAnnouncementPublished(formData: FormData) {
     },
   });
 
-  revalidatePath("/admin/announcements");
-  revalidatePath("/portal/announcements");
-  revalidatePath("/portal");
+  let delivery: BroadcastResult | null = null;
+  if (published && !current.published) {
+    delivery = await notifyAnnouncement(current);
+  }
+
+  await logActivity({
+    actorId: admin.id,
+    action: published ? "announcement.published" : "announcement.unpublished",
+    entityType: "announcement",
+    entityId: id,
+    metadata: delivery
+      ? { emailed: delivery.emailed, texted: delivery.texted }
+      : undefined,
+  });
+
+  revalidateAnnouncements();
+  return delivery;
 }
 
 export async function deleteAnnouncement(formData: FormData) {
-  await requireAdminRole();
+  const admin = await requireAdminRole();
   const id = String(formData.get("id") ?? "").trim();
   if (!id) throw new Error("Announcement is required");
 
@@ -56,7 +115,12 @@ export async function deleteAnnouncement(formData: FormData) {
     data: { published: false, deletedAt: new Date() },
   });
 
-  revalidatePath("/admin/announcements");
-  revalidatePath("/portal/announcements");
-  revalidatePath("/portal");
+  await logActivity({
+    actorId: admin.id,
+    action: "announcement.removed",
+    entityType: "announcement",
+    entityId: id,
+  });
+
+  revalidateAnnouncements();
 }

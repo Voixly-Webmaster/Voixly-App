@@ -45,11 +45,11 @@ export async function saveSettings(keys: SettingKey[], formData: FormData) {
 export async function sendTestEmail() {
   try {
     const admin = await requireAdminRole();
-    const { sendEmail } = await import("@/lib/email");
+    const { sendEmail, testEmailHtml } = await import("@/lib/email");
     const result = await sendEmail({
       to: admin.email,
       subject: "Voixly test email",
-      html: `<p>Resend is connected. This test was sent to ${admin.email}.</p>`,
+      html: testEmailHtml(),
     });
     if ("dev" in result && result.dev) {
       return {

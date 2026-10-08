@@ -31,10 +31,14 @@ export function CreateUserForm() {
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
           try {
-            await createUser(formData);
+            const result = await createUser(formData);
             success(
               "User created",
-              "Share the password with them securely — it won't be shown again."
+              result.role === "CLIENT"
+                ? result.welcomeSent
+                  ? "A welcome email is on its way. Share the password with them separately."
+                  : "The account was created, but the welcome email did not send. Share the password with them separately."
+                : "Share the password with them securely. It won't be shown again."
             );
             formRef.current?.reset();
             setPassword("");

@@ -6,6 +6,7 @@ import { requireAuth, requireAdmin } from "@/lib/session-guard";
 import { assertClientAccess } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity";
 import { sendEmail, ticketReplyEmailHtml } from "@/lib/email";
+import { notifyClient, textClient } from "@/lib/outreach";
 import { TicketStatus, UserRole } from "@prisma/client";
 
 async function staffEmailsForClient(clientId: string): Promise<string[]> {
@@ -68,6 +69,41 @@ export async function createTicket(formData: FormData) {
     entityType: "ticket",
     entityId: ticket.id,
   });
+
+  const { getAppUrl } = await import("@/lib/app-url");
+  const appUrl = await getAppUrl();
+  const isStaff = user.role !== UserRole.CLIENT;
+  try {
+    if (isStaff) {
+      const ticketUrl = `${appUrl}/portal/support/${ticket.id}`;
+      await notifyClient(clientId, {
+        subject: `New ticket: ${subject.trim()}`,
+        html: ticketReplyEmailHtml({
+          ticketSubject: subject.trim(),
+          messagePreview: body.trim().slice(0, 200),
+          ticketUrl,
+          isStaffReply: true,
+        }),
+        sms: `Voixly opened a ticket: ${subject.trim()}. ${ticketUrl}`,
+      });
+    } else {
+      const emails = await staffEmailsForClient(clientId);
+      if (emails.length > 0) {
+        await sendEmail({
+          to: emails,
+          subject: `New ticket: ${subject.trim()}`,
+          html: ticketReplyEmailHtml({
+            ticketSubject: subject.trim(),
+            messagePreview: body.trim().slice(0, 200),
+            ticketUrl: `${appUrl}/admin/tickets/${ticket.id}`,
+            isStaffReply: false,
+          }),
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[ticket] create notify failed", err);
+  }
 
   revalidatePath("/portal/support");
   revalidatePath("/admin/tickets");
@@ -144,6 +180,13 @@ export async function replyToTicket(ticketId: string, formData: FormData) {
     } catch (err) {
       console.error("[ticket] notify failed", err);
     }
+  }
+
+  if (isStaff) {
+    await textClient(
+      ticket.clientId,
+      `Voixly replied to "${ticket.subject}". ${ticketUrl}`
+    );
   }
 
   revalidatePath(`/portal/support/${ticketId}`);

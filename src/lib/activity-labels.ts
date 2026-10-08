@@ -16,6 +16,10 @@ const ACTION_LABELS: Record<string, string> = {
   "invoice.recurring_created": "Created recurring invoice",
   "invoice.recurring_cancelled": "Cancelled recurring invoice",
   "invoice.created": "Created invoice",
+  "announcement.created": "Saved an announcement draft",
+  "announcement.published": "Published an announcement",
+  "announcement.unpublished": "Unpublished an announcement",
+  "announcement.removed": "Removed an announcement",
   "product.created": "Created product",
   "product.deleted": "Deleted product",
 };

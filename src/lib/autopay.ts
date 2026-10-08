@@ -121,6 +121,14 @@ export async function chargeInvoiceWithAutopay(invoiceId: string): Promise<{
       metadata: { error: message },
     });
 
+    const { notifyPaymentFailed } = await import("@/lib/outreach");
+    await notifyPaymentFailed({
+      clientId: client.id,
+      invoiceNumber: invoice.invoiceNumber,
+      title: invoice.title,
+      amountCents: invoice.amountCents,
+    });
+
     return { ok: false, reason: message };
   }
 }

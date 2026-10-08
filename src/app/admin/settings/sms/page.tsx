@@ -10,7 +10,7 @@ import { Smartphone } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "SMS",
-  description: "VoidFix settings for sign-in codes by text.",
+  description: "VoidFix settings for texts to clients.",
 };
 
 const KEYS: SettingKey[] = ["voidfix.apiKey", "voidfix.deviceId"];
@@ -21,13 +21,13 @@ export default async function SmsSettingsPage() {
   return (
     <FormPanel
       title="SMS (VoidFix)"
-      description="Text message sign-in codes are sent from a phone on your VoidFix account"
+      description="Sign-in codes, announcements, invoices, ticket replies, and failed payments"
       icon={Smartphone}
     >
       {!apiKey.isSet && (
         <AlertBanner variant="info" className="mb-4">
-          No API key set — in local development, text codes are printed in the
-          server console instead of being sent.
+          No API key set — in local development, texts are printed in the server
+          console instead of being sent.
         </AlertBanner>
       )}
       <div className="mb-5 space-y-2 text-sm text-muted-foreground">

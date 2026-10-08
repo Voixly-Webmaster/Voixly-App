@@ -13,21 +13,17 @@ import { SearchInput } from "@/components/shared/search-input";
 import { FilterSelect } from "@/components/shared/filter-select";
 import { FormPanel } from "@/components/shared/form-panel";
 import { ClientTierBadge } from "@/components/shared/status-badge";
-import { selectClassName } from "@/lib/ui";
 import {
   Pagination,
   DEFAULT_PAGE_SIZE,
   parsePageParam,
 } from "@/components/shared/pagination";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { createClient } from "@/actions/clients";
+import { CreateClientForm } from "@/components/clients/create-client-form";
 import { ClientTier, UserRole } from "@prisma/client";
 import { formatDate } from "@/lib/utils";
 import { EmptyState } from "@/components/shared/empty-state";
 import { UserPlus, Users } from "lucide-react";
-import { PendingSubmit } from "@/components/shared/pending-submit";
 
 export const metadata: Metadata = {
   title: "Clients",
@@ -108,59 +104,10 @@ export default async function AdminClientsPage({
       {user.role === UserRole.ADMIN && (
         <FormPanel
           title="Add client"
-          description="Create a new client portal login"
+          description="Creates a portal login and sends a welcome email"
           icon={UserPlus}
         >
-          <form
-            action={createClient}
-            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-          >
-            <div className="space-y-2">
-              <Label htmlFor="new-client-company">Company</Label>
-              <Input id="new-client-company" name="companyName" required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-client-contact">Contact name</Label>
-              <Input id="new-client-contact" name="contactName" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-client-email">Email</Label>
-              <Input id="new-client-email" name="email" type="email" required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-client-phone">Phone</Label>
-              <Input id="new-client-phone" name="phone" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-client-password">Password</Label>
-              <Input
-                id="new-client-password"
-                name="password"
-                type="password"
-                required
-                minLength={8}
-                autoComplete="new-password"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-client-tier">Tier</Label>
-              <select
-                id="new-client-tier"
-                name="tier"
-                className={selectClassName}
-                defaultValue=""
-              >
-                <option value="">None</option>
-                <option value="PLATINUM">Platinum</option>
-                <option value="GOLD">Gold</option>
-                <option value="SILVER">Silver</option>
-                <option value="BRONZE">Bronze</option>
-              </select>
-            </div>
-            <div className="flex items-end sm:col-span-2 lg:col-span-1">
-              <PendingSubmit pendingLabel="Creating…">Create client</PendingSubmit>
-            </div>
-          </form>
+          <CreateClientForm />
         </FormPanel>
       )}
 

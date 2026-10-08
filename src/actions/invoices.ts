@@ -26,18 +26,20 @@ async function emailInvoiceCreated(params: {
   amountCents: number;
   dueDate: Date | null;
   recurring?: boolean;
-}): Promise<boolean> {
+}): Promise<{ emailSent: boolean; smsSent: boolean | null }> {
   try {
-    const { sendInvoiceCreatedEmail } = await import("@/lib/email");
-    await sendInvoiceCreatedEmail(params);
-    return true;
+    const { notifyInvoiceCreated } = await import("@/lib/outreach");
+    return await notifyInvoiceCreated(params);
   } catch (err) {
-    console.error("[invoice] email failed", err);
-    return false;
+    console.error("[invoice] notify failed", err);
+    return { emailSent: false, smsSent: null };
   }
 }
 
-export async function createInvoice(formData: FormData): Promise<{ emailSent: boolean }> {
+export async function createInvoice(formData: FormData): Promise<{
+  emailSent: boolean;
+  smsSent: boolean | null;
+}> {
   const user = await requireAdmin();
   if (user.role !== UserRole.ADMIN) throw new Error("Unauthorized");
 
@@ -113,7 +115,7 @@ export async function createInvoice(formData: FormData): Promise<{ emailSent: bo
       },
     });
 
-    const emailSent = await emailInvoiceCreated({
+    const notice = await emailInvoiceCreated({
       clientId,
       invoiceNumber,
       title: trimmedTitle,
@@ -123,7 +125,7 @@ export async function createInvoice(formData: FormData): Promise<{ emailSent: bo
     });
     revalidatePath("/admin/invoices");
     revalidatePath("/portal/billing");
-    return { emailSent };
+    return notice;
   } else {
     const invoice = await prisma.invoice.create({
       data: {
@@ -146,7 +148,7 @@ export async function createInvoice(formData: FormData): Promise<{ emailSent: bo
       entityId: invoice.id,
     });
 
-    const emailSent = await emailInvoiceCreated({
+    const notice = await emailInvoiceCreated({
       clientId,
       invoiceNumber,
       title: trimmedTitle,
@@ -166,7 +168,7 @@ export async function createInvoice(formData: FormData): Promise<{ emailSent: bo
 
     revalidatePath("/admin/invoices");
     revalidatePath("/portal/billing");
-    return { emailSent };
+    return notice;
   }
 }
 

@@ -6,7 +6,11 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   try {
     const result = await createInvoice(await req.formData());
-    return NextResponse.json({ ok: true, emailSent: result.emailSent });
+    return NextResponse.json({
+      ok: true,
+      emailSent: result.emailSent,
+      smsSent: result.smsSent,
+    });
   } catch (err) {
     if (
       err &&

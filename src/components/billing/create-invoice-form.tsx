@@ -80,18 +80,22 @@ export function CreateInvoiceForm({
             const body = (await res.json().catch(() => null)) as {
               error?: string;
               emailSent?: boolean;
+              smsSent?: boolean | null;
             } | null;
             if (!res.ok) {
               throw new Error(body?.error || "Could not create invoice");
             }
-            success(
-              recurring ? "Recurring invoice created" : "Invoice sent",
+            const notice =
               body?.emailSent === false
                 ? "Saved, but the client email did not send."
-                : recurring
-                  ? "Client will subscribe and be charged automatically each period."
-                  : undefined
-            );
+                : body?.smsSent === false
+                  ? "Email sent, but the text did not send."
+                  : body?.smsSent === true
+                    ? "Email and text sent."
+                    : recurring
+                      ? "Client will subscribe and be charged automatically each period."
+                      : undefined;
+            success(recurring ? "Recurring invoice created" : "Invoice sent", notice);
             resetForm();
             router.refresh();
           } catch (err) {

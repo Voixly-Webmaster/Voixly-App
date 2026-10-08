@@ -6,11 +6,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { FormPanel } from "@/components/shared/form-panel";
 import { Panel } from "@/components/shared/panel";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { PendingSubmit } from "@/components/shared/pending-submit";
-import { createAnnouncement } from "@/actions/announcements";
+import { AnnouncementForm } from "@/components/announcements/announcement-form";
 import { AnnouncementActions } from "@/components/announcements/announcement-actions";
 import { formatDate } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
@@ -18,7 +14,7 @@ import { Megaphone } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Announcements",
-  description: "Publish updates that appear in the client portal.",
+  description: "Publish updates by portal, email, and text.",
 };
 
 export default async function AdminAnnouncementsPage() {
@@ -31,29 +27,18 @@ export default async function AdminAnnouncementsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Announcements" description="Publish notices to all clients" />
+      <PageHeader
+        title="Announcements"
+        description="Publish notices to every client in the portal, by email, and by text"
+      />
 
       {user.role === UserRole.ADMIN && (
         <FormPanel
           title="New announcement"
-          description="Visible to all clients when published"
+          description="Published notices go to the portal, each client's email, and any mobile number on file"
           icon={Megaphone}
         >
-          <form action={createAnnouncement} className="max-w-lg space-y-4">
-            <div className="space-y-2">
-              <Label>Title</Label>
-              <Input name="title" required />
-            </div>
-            <div className="space-y-2">
-              <Label>Body</Label>
-              <Textarea name="body" required rows={4} />
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="publish" defaultChecked className="rounded" />
-              Publish immediately
-            </label>
-            <PendingSubmit pendingLabel="Publishing…">Publish</PendingSubmit>
-          </form>
+          <AnnouncementForm />
         </FormPanel>
       )}
 
