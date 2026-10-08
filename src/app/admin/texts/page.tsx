@@ -6,11 +6,13 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { SearchInput } from "@/components/shared/search-input";
 import { SyncTextsButton } from "@/components/texts/text-actions";
+import { SendTextForm } from "@/components/texts/send-text-form";
 import { TextInboxList } from "@/components/texts/text-inbox";
-import { formatPhone } from "@/lib/phone";
+import { Panel } from "@/components/shared/panel";
+import { formatPhone, normalizePhone } from "@/lib/phone";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
-import { Smartphone } from "lucide-react";
+import { Smartphone, Send } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Texts",
@@ -50,7 +52,12 @@ export default async function TextsPage({
   ];
   const where = { AND: [{ messages: { some: { deletedAt: null } } }, ...filters] };
 
-  const [threads, filteredClient] = await Promise.all([
+  const clientWhere =
+    scope === "all"
+      ? { deletedAt: null }
+      : { deletedAt: null, id: { in: scope.length ? scope : ["__none__"] } };
+
+  const [threads, filteredClient, customers] = await Promise.all([
     prisma.smsConversation.findMany({
       where,
       include: {
@@ -65,6 +72,12 @@ export default async function TextsPage({
           select: { companyName: true },
         })
       : Promise.resolve(null),
+    prisma.client.findMany({
+      where: clientWhere,
+      select: { id: true, companyName: true, phone: true, user: { select: { twoFactorPhone: true } } },
+      orderBy: { companyName: "asc" },
+      take: 200,
+    }),
   ]);
 
   return (
@@ -83,6 +96,24 @@ export default async function TextsPage({
           </div>
         }
       />
+
+      <Panel
+        title="Text a customer"
+        description="Sends from your Voixly number and shows up in their thread."
+        icon={Send}
+        accent="secondary"
+      >
+        <SendTextForm
+          defaultClientId={clientId}
+          customers={customers.map((customer) => {
+            const phone = normalizePhone(customer.phone ?? "") ?? normalizePhone(customer.user.twoFactorPhone ?? "");
+            return {
+              id: customer.id,
+              label: phone ? `${customer.companyName} · ${formatPhone(phone)}` : `${customer.companyName} · no mobile number`,
+            };
+          })}
+        />
+      </Panel>
 
       <div className="flex flex-wrap gap-2 text-sm">
         <FilterLink href="/admin/texts" active={!clientId && !showUnlinked}>

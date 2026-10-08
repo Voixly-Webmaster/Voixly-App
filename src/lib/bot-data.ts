@@ -3,7 +3,12 @@ import { TaskStatus, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { logActivity } from "@/lib/activity";
 import { normalizePhone, phonesMatch } from "@/lib/phone";
-import { createTaskFromInboundText, linkConversationToClient, sendConversationReply } from "@/lib/text-ops";
+import {
+  createTaskFromInboundText,
+  linkConversationToClient,
+  sendConversationReply,
+  sendTextToCustomer,
+} from "@/lib/text-ops";
 import { addStaffTicketReply } from "@/lib/ticket-reply";
 import { botError, botJson, type BotContext } from "@/lib/bots";
 
@@ -224,6 +229,32 @@ export async function getText(id: string) {
         sentAt: message.sentAt.toISOString(),
         taskId: message.taskId,
       })),
+    },
+  });
+}
+
+export async function sendCustomerText(bot: BotContext, customerId: string, req: Request) {
+  const body = await readObject(req);
+  if (body instanceof Response) return body;
+  const clientId = customerId || textOf(body.customerId, 64);
+  if (!clientId) return botError(400, "Send a customerId");
+  const result = await sendTextToCustomer({
+    clientId,
+    body: typeof body.body === "string" ? body.body : "",
+    actor: { actorId: null, botName: bot.name },
+  });
+  if ("error" in result) {
+    if (result.error === "That customer was not found") return botError(404, result.error);
+    if (result.error === "That number is already linked to another customer") {
+      return botError(409, result.error);
+    }
+    return botError(400, result.error);
+  }
+  return botJson({
+    text: {
+      id: result.conversationId,
+      phone: result.phone,
+      message: { id: result.messageId, sentAt: result.sentAt },
     },
   });
 }

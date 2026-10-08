@@ -183,7 +183,7 @@ model Client {
   balanceCents    Int       @default(0)
   notes           String?   @db.Text
   tier            ClientTier?
-  /** Stored filename for the company logo. Served only to people who can see this client. */
+  /** Cache-busting name for the logo. The image bytes live in ClientLogo so a deploy cannot delete them. */
   logoFileName    String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -202,11 +202,22 @@ model Client {
   activityLogs    ActivityLog[]
   googleIntegration ClientGoogleIntegration?
   smsConversations SmsConversation[]
+  logo            ClientLogo?
 
   @@index([companyName])
   @@index([tier])
   @@index([deletedAt])
   @@map("clients")
+}
+
+model ClientLogo {
+  clientId  String   @id
+  data      Bytes    @db.LongBlob
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_logos")
 }
 
 model StaffProfile {

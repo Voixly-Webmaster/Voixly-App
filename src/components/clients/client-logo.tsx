@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,10 @@ export function ClientLogo({
   logoFileName: string | null;
   size?: "sm" | "md" | "lg";
 }) {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => {
+    setBroken(false);
+  }, [logoFileName]);
   const initials = name
     .split(/\s+/)
     .filter(Boolean)
@@ -36,13 +40,14 @@ export function ClientLogo({
         box
       )}
     >
-      {logoFileName ? (
+      {logoFileName && !broken ? (
         // The logo is a private, session-checked image, so a plain img is the right tag.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={`/api/clients/${clientId}/logo?v=${encodeURIComponent(logoFileName)}`}
           alt=""
           className="h-full w-full object-contain p-1"
+          onError={() => setBroken(true)}
         />
       ) : (
         initials || "•"

@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
-import { mkdir, unlink, writeFile } from "fs/promises";
-import path from "path";
+import { unlink } from "fs/promises";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
@@ -11,7 +10,7 @@ import { requireAdmin } from "@/lib/session-guard";
 import { assertClientAccess } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity";
 import { sendClientWelcome } from "@/lib/email";
-import { logoKind, MAX_LOGO_BYTES, storedFilePath, UPLOAD_DIR } from "@/lib/uploads";
+import { logoKind, MAX_LOGO_BYTES, storedFilePath } from "@/lib/uploads";
 import { ClientTier, UserRole } from "@prisma/client";
 
 function parseClientTier(value: unknown): ClientTier | null {
@@ -172,14 +171,18 @@ export async function setClientLogo(
 
     const ext = kind === "jpeg" ? "jpg" : kind;
     const fileName = `logo-${randomUUID()}.${ext}`;
-    const dir = path.join(process.cwd(), UPLOAD_DIR);
-    await mkdir(dir, { recursive: true });
-    await writeFile(storedFilePath(fileName), bytes);
 
-    await prisma.client.update({
-      where: { id: clientId },
-      data: { logoFileName: fileName },
-    });
+    await prisma.$transaction([
+      prisma.clientLogo.upsert({
+        where: { clientId },
+        create: { clientId, data: Buffer.from(bytes) },
+        update: { data: Buffer.from(bytes) },
+      }),
+      prisma.client.update({
+        where: { id: clientId },
+        data: { logoFileName: fileName },
+      }),
+    ]);
     await removeLogoFile(current.logoFileName);
 
     try {
@@ -220,10 +223,13 @@ export async function removeClientLogo(
     if (!current) return { error: "That customer was not found" };
     if (!current.logoFileName) return { ok: true };
 
-    await prisma.client.update({
-      where: { id: clientId },
-      data: { logoFileName: null },
-    });
+    await prisma.$transaction([
+      prisma.clientLogo.deleteMany({ where: { clientId } }),
+      prisma.client.update({
+        where: { id: clientId },
+        data: { logoFileName: null },
+      }),
+    ]);
     await removeLogoFile(current.logoFileName);
 
     try {

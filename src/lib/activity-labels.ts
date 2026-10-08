@@ -18,6 +18,7 @@ const ACTION_LABELS: Record<string, string> = {
   "sms.received": "Received a text",
   "sms.linked": "Linked a text to a customer",
   "sms.replied": "Replied by text",
+  "sms.sent": "Sent a text",
   "sms.task_created": "Turned a text into a task",
   "sms.deleted": "Deleted texts",
   "bot.created": "Created a bot key",

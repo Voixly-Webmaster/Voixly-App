@@ -11,6 +11,7 @@ import {
   listTickets,
   replyToText,
   replyToTicket,
+  sendCustomerText,
   updateTask,
 } from "@/lib/bot-data";
 
@@ -35,6 +36,12 @@ async function dispatch(req: Request, method: string, path: string[]) {
   }
   if (method === "GET" && n === 1 && a === "texts") {
     return withBot(req, "texts:read", () => listTexts(req));
+  }
+  if (method === "POST" && n === 1 && a === "texts") {
+    return withBot(req, "texts:reply", (bot) => sendCustomerText(bot, "", req));
+  }
+  if (method === "POST" && n === 3 && a === "customers" && b && c === "texts") {
+    return withBot(req, "texts:reply", (bot) => sendCustomerText(bot, b, req));
   }
   if (method === "GET" && n === 2 && a === "texts" && b) {
     return withBot(req, "texts:read", () => getText(b));

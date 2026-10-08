@@ -1,7 +1,7 @@
 "use client";
 
 import { Menu, LogOut, Search, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -34,6 +34,10 @@ export function AppShell({
   searchPlaceholder?: string;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [avatarBroken, setAvatarBroken] = useState(false);
+  useEffect(() => {
+    setAvatarBroken(false);
+  }, [avatarUrl]);
   const palette = useCommandPalette();
   const isMac =
     typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -127,13 +131,14 @@ export function AppShell({
             <ThemeToggle />
             {(userName || roleLabel) && (
               <span className="hidden items-center gap-2 rounded-full bg-muted/80 px-3 py-1 text-sm text-muted-foreground md:inline-flex">
-                {avatarUrl && (
+                {avatarUrl && !avatarBroken && (
                   // Session-checked logo. A plain img keeps the private route.
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={avatarUrl}
                     alt=""
                     className="h-6 w-6 rounded-md object-contain"
+                    onError={() => setAvatarBroken(true)}
                   />
                 )}
                 {userName}

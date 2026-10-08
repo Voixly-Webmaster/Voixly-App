@@ -13,6 +13,7 @@ import {
   createTaskFromInboundText,
   linkConversationToClient,
   sendConversationReply,
+  sendTextToCustomer,
 } from "@/lib/text-ops";
 
 async function loadConversation(id: string) {
@@ -105,6 +106,31 @@ export async function linkTextToClient(
     unstable_rethrow(err);
     console.error("[texts] link failed", err);
     return { error: "Could not link this text to a customer" };
+  }
+}
+
+export async function sendTextToClient(
+  clientId: string,
+  body: string
+): Promise<{ ok: true; conversationId: string } | { error: string }> {
+  try {
+    const user = await requireAdmin();
+    if (!clientId) return { error: "Choose a customer" };
+    await assertClientAccess(user, clientId);
+    const result = await sendTextToCustomer({
+      clientId,
+      body,
+      actor: { actorId: user.id },
+    });
+    if ("error" in result) return result;
+    return { ok: true, conversationId: result.conversationId };
+  } catch (err) {
+    unstable_rethrow(err);
+    if (err instanceof Error && err.message === "Unauthorized") {
+      return { error: "You cannot text this customer" };
+    }
+    console.error("[texts] outbound failed", err);
+    return { error: "Could not send the text" };
   }
 }
 

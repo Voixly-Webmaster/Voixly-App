@@ -16,10 +16,16 @@ export async function GET(
   const user = await requireAuth();
 
   const client = await prisma.client.findFirst({
-    where: { id, deletedAt: null, logoFileName: { not: null } },
-    select: { id: true, logoFileName: true },
+    where: { id, deletedAt: null },
+    select: {
+      id: true,
+      logoFileName: true,
+      logo: { select: { data: true } },
+    },
   });
-  if (!client?.logoFileName) return new NextResponse("Not found", { status: 404 });
+  if (!client?.logoFileName && !client?.logo) {
+    return new NextResponse("Not found", { status: 404 });
+  }
 
   if (user.role === UserRole.CLIENT) {
     if (user.clientId !== client.id) return new NextResponse("Forbidden", { status: 403 });
@@ -27,21 +33,27 @@ export async function GET(
     return new NextResponse("Forbidden", { status: 403 });
   }
 
-  let absPath: string;
-  try {
-    absPath = storedFilePath(client.logoFileName);
-    await stat(absPath);
-  } catch {
-    return new NextResponse("File missing on disk", { status: 410 });
+  const stored = client.logo?.data;
+  let bytes: Uint8Array | null = stored && stored.byteLength > 0 ? new Uint8Array(stored) : null;
+  if (!bytes && client.logoFileName) {
+    try {
+      const absPath = storedFilePath(client.logoFileName);
+      await stat(absPath);
+      bytes = new Uint8Array(await readFile(absPath));
+    } catch {
+      bytes = null;
+    }
   }
+  if (!bytes) return new NextResponse("Not found", { status: 404 });
 
-  const buffer = await readFile(absPath);
+  const body = new Uint8Array(bytes.byteLength);
+  body.set(bytes);
   const headers = new Headers({
-    "Content-Type": logoMimeType(client.logoFileName),
-    "Content-Length": String(buffer.byteLength),
+    "Content-Type": logoMimeType(client.logoFileName ?? "logo.png"),
+    "Content-Length": String(body.byteLength),
     "Content-Disposition": "inline",
     "Cache-Control": "private, max-age=300, must-revalidate",
     "X-Content-Type-Options": "nosniff",
   });
-  return new NextResponse(new Uint8Array(buffer), { status: 200, headers });
+  return new NextResponse(body, { status: 200, headers });
 }

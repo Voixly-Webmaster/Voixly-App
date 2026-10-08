@@ -19,10 +19,12 @@ import { formatDate, formatCurrency } from "@/lib/utils";
 import { InvoiceStatusBadge, ClientTierBadge } from "@/components/shared/status-badge";
 import { UserRole } from "@prisma/client";
 import { selectClassName } from "@/lib/ui";
-import { Building2, StickyNote, Receipt, Users } from "lucide-react";
+import { Building2, StickyNote, Receipt, Users, Send } from "lucide-react";
 import { PendingSubmit } from "@/components/shared/pending-submit";
 import { ResendInviteButton } from "@/components/clients/resend-invite-button";
 import { ClientLogoForm } from "@/components/clients/client-logo";
+import { SendTextForm } from "@/components/texts/send-text-form";
+import { formatPhone, normalizePhone } from "@/lib/phone";
 
 export default async function AdminClientDetailPage({
   params,
@@ -63,6 +65,8 @@ export default async function AdminClientDetailPage({
         })
       : [];
   const unassignedStaff = availableStaff.filter((s) => !assignedStaffIds.has(s.id));
+  const textPhone =
+    normalizePhone(client.phone ?? "") ?? normalizePhone(client.user.twoFactorPhone ?? "");
 
   return (
     <div className="space-y-6">
@@ -95,6 +99,22 @@ export default async function AdminClientDetailPage({
           </div>
         }
       />
+
+      <Panel
+        title="Text them"
+        description={
+          textPhone
+            ? `Sends from your Voixly number to ${formatPhone(textPhone)}.`
+            : "Add a full mobile number on this profile before texting them."
+        }
+        icon={Send}
+        accent="secondary"
+      >
+        <SendTextForm
+          defaultClientId={client.id}
+          customers={[{ id: client.id, label: client.companyName }]}
+        />
+      </Panel>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel title="Profile" description="Client contact and company details" icon={Building2} accent="secondary">

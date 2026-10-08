@@ -31,7 +31,7 @@ export default async function BotsSettingsPage() {
   return (
     <FormPanel
       title="Grok bots"
-      description="A key for a bot to read customers and texts, reply, and update tasks. It cannot delete, change settings, or touch Stripe."
+      description="A key for a bot to look up customers, text them, read the inbox, and update tasks. It cannot delete, change settings, or touch Stripe."
       icon={Bot}
     >
       <BotKeys
