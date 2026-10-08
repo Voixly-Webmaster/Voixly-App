@@ -14,19 +14,35 @@ import {
   linkConversationToClient,
   sendConversationReply,
   sendTextToCustomer,
+  sendTextToTeammate,
 } from "@/lib/text-ops";
 
 async function loadConversation(id: string) {
   return prisma.smsConversation.findUnique({
     where: { id },
-    include: { client: { select: { id: true, companyName: true, phone: true, deletedAt: true } } },
+    include: {
+      client: { select: { id: true, companyName: true, phone: true, deletedAt: true } },
+      user: { select: { id: true, deletedAt: true, role: true } },
+    },
   });
+}
+
+function liveTeammate(
+  conversation: NonNullable<Awaited<ReturnType<typeof loadConversation>>>
+) {
+  return Boolean(
+    conversation.userId &&
+      conversation.user &&
+      !conversation.user.deletedAt &&
+      (conversation.user.role === UserRole.ADMIN || conversation.user.role === UserRole.STAFF)
+  );
 }
 
 async function assertThreadAccess(
   user: Awaited<ReturnType<typeof requireAdmin>>,
   conversation: NonNullable<Awaited<ReturnType<typeof loadConversation>>>
 ) {
+  if (liveTeammate(conversation) && !conversation.clientId) return;
   if (!conversation.clientId || conversation.client?.deletedAt) {
     if (user.role !== UserRole.ADMIN) throw new Error("Unauthorized");
     return;
@@ -109,25 +125,27 @@ export async function linkTextToClient(
   }
 }
 
-export async function sendTextToClient(
-  clientId: string,
+export async function sendText(
+  kind: "client" | "user",
+  id: string,
   body: string
 ): Promise<{ ok: true; conversationId: string } | { error: string }> {
   try {
     const user = await requireAdmin();
-    if (!clientId) return { error: "Choose a customer" };
-    await assertClientAccess(user, clientId);
-    const result = await sendTextToCustomer({
-      clientId,
-      body,
-      actor: { actorId: user.id },
-    });
+    if (!id) return { error: kind === "user" ? "Choose a teammate" : "Choose a customer" };
+    const result =
+      kind === "user"
+        ? await sendTextToTeammate({ userId: id, body, actor: { actorId: user.id } })
+        : await (async () => {
+            await assertClientAccess(user, id);
+            return sendTextToCustomer({ clientId: id, body, actor: { actorId: user.id } });
+          })();
     if ("error" in result) return result;
     return { ok: true, conversationId: result.conversationId };
   } catch (err) {
     unstable_rethrow(err);
     if (err instanceof Error && err.message === "Unauthorized") {
-      return { error: "You cannot text this customer" };
+      return { error: kind === "user" ? "You cannot text this teammate" : "You cannot text this customer" };
     }
     console.error("[texts] outbound failed", err);
     return { error: "Could not send the text" };
@@ -287,7 +305,10 @@ export async function deleteTextThreads(
 
     const conversations = await prisma.smsConversation.findMany({
       where: { id: { in: conversationIds } },
-      include: { client: { select: { id: true, companyName: true, phone: true, deletedAt: true } } },
+      include: {
+        client: { select: { id: true, companyName: true, phone: true, deletedAt: true } },
+        user: { select: { id: true, deletedAt: true, role: true } },
+      },
     });
     const allowed = await allowedConversationIds(user, conversations);
     if (allowed.length === 0) return { error: "Those conversations were not found" };
@@ -323,7 +344,10 @@ export async function deleteTextMessages(
     const conversationIds = [...new Set(messages.map((message) => message.conversationId))];
     const conversations = await prisma.smsConversation.findMany({
       where: { id: { in: conversationIds } },
-      include: { client: { select: { id: true, companyName: true, phone: true, deletedAt: true } } },
+      include: {
+        client: { select: { id: true, companyName: true, phone: true, deletedAt: true } },
+        user: { select: { id: true, deletedAt: true, role: true } },
+      },
     });
     const allowed = new Set(await allowedConversationIds(user, conversations));
     const deletable = messages

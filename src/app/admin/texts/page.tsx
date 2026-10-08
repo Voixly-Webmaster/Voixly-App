@@ -16,7 +16,7 @@ import { Smartphone, Send } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Texts",
-  description: "Texts from customers, tied to their account.",
+  description: "Texts with customers and the Voixly team.",
 };
 
 export default async function TextsPage({
@@ -34,9 +34,16 @@ export default async function TextsPage({
   const filters = [
     ...(scope === "all"
       ? []
-      : [{ clientId: { in: scope.length ? scope : ["__none__"] } }]),
+      : [
+          {
+            OR: [
+              { clientId: { in: scope.length ? scope : ["__none__"] } },
+              { user: { is: { deletedAt: null, role: { in: [UserRole.ADMIN, UserRole.STAFF] } } } },
+            ],
+          },
+        ]),
     ...(clientId ? [{ clientId }] : []),
-    ...(showUnlinked ? [{ clientId: null }] : []),
+    ...(showUnlinked ? [{ clientId: null, userId: null }] : []),
     ...(query
       ? [
           {
@@ -44,6 +51,8 @@ export default async function TextsPage({
               { lastPreview: { contains: query } },
               { client: { companyName: { contains: query } } },
               { client: { contactName: { contains: query } } },
+              { user: { name: { contains: query } } },
+              { user: { email: { contains: query } } },
               ...(digits.length >= 3 ? [{ phone: { contains: digits } }] : []),
             ],
           },
@@ -57,11 +66,12 @@ export default async function TextsPage({
       ? { deletedAt: null }
       : { deletedAt: null, id: { in: scope.length ? scope : ["__none__"] } };
 
-  const [threads, filteredClient, customers] = await Promise.all([
+  const [threads, filteredClient, customers, teammates] = await Promise.all([
     prisma.smsConversation.findMany({
       where,
       include: {
         client: { select: { companyName: true, contactName: true } },
+        user: { select: { name: true, email: true, role: true, deletedAt: true } },
       },
       orderBy: { lastMessageAt: "desc" },
       take: 100,
@@ -78,6 +88,21 @@ export default async function TextsPage({
       orderBy: { companyName: "asc" },
       take: 200,
     }),
+    clientId
+      ? Promise.resolve([])
+      : prisma.user.findMany({
+          where: { deletedAt: null, role: { in: [UserRole.ADMIN, UserRole.STAFF] } },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            twoFactorPhone: true,
+            staffProfile: { select: { phone: true } },
+          },
+          orderBy: { name: "asc" },
+          take: 200,
+        }),
   ]);
 
   return (
@@ -87,7 +112,7 @@ export default async function TextsPage({
         description={
           filteredClient
             ? `Texts from ${filteredClient.companyName}`
-            : "Website changes and replies customers text to your Voixly number. Each thread stays with that customer."
+            : "Texts with customers and teammates, from your Voixly number."
         }
         action={
           <div className="flex flex-wrap items-center gap-2">
@@ -98,20 +123,40 @@ export default async function TextsPage({
       />
 
       <Panel
-        title="Text a customer"
+        title={clientId ? "Text this customer" : "Text someone"}
         description="Sends from your Voixly number and shows up in their thread."
         icon={Send}
         accent="secondary"
       >
         <SendTextForm
-          defaultClientId={clientId}
-          customers={customers.map((customer) => {
-            const phone = normalizePhone(customer.phone ?? "") ?? normalizePhone(customer.user.twoFactorPhone ?? "");
-            return {
-              id: customer.id,
-              label: phone ? `${customer.companyName} · ${formatPhone(phone)}` : `${customer.companyName} · no mobile number`,
-            };
-          })}
+          locked={Boolean(clientId)}
+          recipients={[
+            ...customers.map((customer) => {
+              const phone =
+                normalizePhone(customer.phone ?? "") ?? normalizePhone(customer.user.twoFactorPhone ?? "");
+              return {
+                id: customer.id,
+                kind: "client" as const,
+                group: "Customers",
+                label: phone
+                  ? `${customer.companyName} · ${formatPhone(phone)}`
+                  : `${customer.companyName} · no mobile number`,
+              };
+            }),
+            ...teammates.map((teammate) => {
+              const phone =
+                normalizePhone(teammate.staffProfile?.phone ?? "") ??
+                normalizePhone(teammate.twoFactorPhone ?? "");
+              const name = teammate.name?.trim() || teammate.email;
+              const role = teammate.role === UserRole.ADMIN ? "Admin" : "Staff";
+              return {
+                id: teammate.id,
+                kind: "user" as const,
+                group: "Team",
+                label: phone ? `${name} · ${role} · ${formatPhone(phone)}` : `${name} · ${role} · no mobile number`,
+              };
+            }),
+          ]}
         />
       </Panel>
 
@@ -133,22 +178,25 @@ export default async function TextsPage({
           description={
             filteredClient
               ? "When they text your Voixly number, the thread shows up here."
-              : "When a customer texts your Voixly number, it shows up here under their name. Use Check for texts after the inbox is turned on in Settings → SMS."
+              : "When someone texts your Voixly number, it shows up here under their name. Use Check for texts after the inbox is turned on in Settings → SMS."
           }
         />
       ) : (
         <TextInboxList
-          threads={threads.map((thread) => ({
-            id: thread.id,
-            name:
-              thread.client?.companyName ??
-              `Unknown number · ${formatPhone(thread.phone)}`,
-            preview: thread.lastPreview,
-            when: formatRelativeTime(thread.lastMessageAt),
-            unread: thread.unreadCount,
-            needsCustomer: !thread.client,
-            phonePrefix: thread.client ? `${formatPhone(thread.phone)} · ` : "",
-          }))}
+          threads={threads.map((thread) => {
+            const teammate =
+              thread.user && !thread.user.deletedAt ? thread.user.name?.trim() || thread.user.email : null;
+            const named = Boolean(thread.client || teammate);
+            return {
+              id: thread.id,
+              name: thread.client?.companyName ?? teammate ?? `Unknown number · ${formatPhone(thread.phone)}`,
+              preview: thread.lastPreview,
+              when: formatRelativeTime(thread.lastMessageAt),
+              unread: thread.unreadCount,
+              needsCustomer: !thread.client && !teammate,
+              phonePrefix: named ? `${formatPhone(thread.phone)} · ` : "",
+            };
+          })}
         />
       )}
     </div>

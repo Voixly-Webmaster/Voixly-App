@@ -140,7 +140,12 @@ export default async function AdminDashboardPage() {
       messages: { some: { deletedAt: null } },
       ...(scope === "all"
         ? {}
-        : { clientId: { in: scope.length ? scope : ["__none__"] } }),
+        : {
+            OR: [
+              { clientId: { in: scope.length ? scope : ["__none__"] } },
+              { user: { is: { deletedAt: null, role: { in: [UserRole.ADMIN, UserRole.STAFF] } } } },
+            ],
+          }),
     },
   });
 

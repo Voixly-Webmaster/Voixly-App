@@ -111,8 +111,8 @@ export default async function AdminClientDetailPage({
         accent="secondary"
       >
         <SendTextForm
-          defaultClientId={client.id}
-          customers={[{ id: client.id, label: client.companyName }]}
+          locked
+          recipients={[{ id: client.id, kind: "client", label: client.companyName, group: "Customers" }]}
         />
       </Panel>
 

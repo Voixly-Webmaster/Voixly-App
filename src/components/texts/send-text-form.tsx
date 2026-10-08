@@ -9,24 +9,31 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/providers/toast-provider";
 import { actionErrorMessage } from "@/lib/action-error";
 import { selectClassName } from "@/lib/ui";
-import { sendTextToClient } from "@/actions/texts";
+import { sendText } from "@/actions/texts";
+
+export type TextRecipient = { id: string; kind: "client" | "user"; label: string; group: string };
+
+function recipientKey(recipient: { kind: string; id: string }) {
+  return `${recipient.kind}:${recipient.id}`;
+}
 
 export function SendTextForm({
-  customers,
-  defaultClientId,
+  recipients,
+  locked,
 }: {
-  customers: { id: string; label: string }[];
-  defaultClientId?: string;
+  recipients: TextRecipient[];
+  locked?: boolean;
 }) {
   const { success, error } = useToast();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [clientId, setClientId] = useState(defaultClientId || customers[0]?.id || "");
-  const locked = Boolean(defaultClientId);
+  const [selected, setSelected] = useState(recipients[0] ? recipientKey(recipients[0]) : "");
 
-  if (customers.length === 0) {
-    return <p className="text-sm text-muted-foreground">No customers to text yet.</p>;
+  if (recipients.length === 0) {
+    return <p className="text-sm text-muted-foreground">No one to text yet.</p>;
   }
+
+  const groups = [...new Set(recipients.map((recipient) => recipient.group))];
 
   return (
     <form
@@ -37,7 +44,12 @@ export function SendTextForm({
         const form = event.currentTarget;
         startTransition(async () => {
           try {
-            const result = await sendTextToClient(clientId, message);
+            const recipient = recipients.find((item) => recipientKey(item) === selected);
+            if (!recipient) {
+              error("Could not send the text", "Choose someone to text");
+              return;
+            }
+            const result = await sendText(recipient.kind, recipient.id, message);
             if ("error" in result) {
               error("Could not send the text", result.error);
               return;
@@ -54,18 +66,24 @@ export function SendTextForm({
     >
       {!locked && (
         <div className="space-y-2">
-          <Label htmlFor="text-customer">Customer</Label>
+          <Label htmlFor="text-recipient">To</Label>
           <select
-            id="text-customer"
+            id="text-recipient"
             className={selectClassName}
-            value={clientId}
+            value={selected}
             disabled={pending}
-            onChange={(event) => setClientId(event.target.value)}
+            onChange={(event) => setSelected(event.target.value)}
           >
-            {customers.map((customer) => (
-              <option key={customer.id} value={customer.id}>
-                {customer.label}
-              </option>
+            {groups.map((group) => (
+              <optgroup key={group} label={group}>
+                {recipients
+                  .filter((recipient) => recipient.group === group)
+                  .map((recipient) => (
+                    <option key={recipientKey(recipient)} value={recipientKey(recipient)}>
+                      {recipient.label}
+                    </option>
+                  ))}
+              </optgroup>
             ))}
           </select>
         </div>
@@ -82,7 +100,7 @@ export function SendTextForm({
           placeholder="Write the text to send from your Voixly number"
         />
       </div>
-      <Button type="submit" disabled={pending || !clientId}>
+      <Button type="submit" disabled={pending || !selected}>
         {pending ? (
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
         ) : (

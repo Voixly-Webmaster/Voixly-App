@@ -12,6 +12,7 @@ import {
   replyToText,
   replyToTicket,
   sendCustomerText,
+  sendTeammateText,
   updateTask,
 } from "@/lib/bot-data";
 
@@ -43,6 +44,9 @@ async function dispatch(req: Request, method: string, path: string[]) {
   if (method === "POST" && n === 3 && a === "customers" && b && c === "texts") {
     return withBot(req, "texts:reply", (bot) => sendCustomerText(bot, b, req));
   }
+  if (method === "POST" && n === 3 && a === "users" && b && c === "texts") {
+    return withBot(req, "texts:reply", (bot) => sendTeammateText(bot, b, req));
+  }
   if (method === "GET" && n === 2 && a === "texts" && b) {
     return withBot(req, "texts:read", () => getText(b));
   }
@@ -65,7 +69,7 @@ async function dispatch(req: Request, method: string, path: string[]) {
     return withBot(req, "support:write", (bot) => replyToTicket(bot, b, req));
   }
 
-  if (a === "me" || a === "customers" || a === "texts" || a === "tasks" || a === "tickets") {
+  if (a === "me" || a === "customers" || a === "texts" || a === "tasks" || a === "tickets" || a === "users") {
     return botError(405, "That method is not allowed");
   }
   return botError(404, "That address was not found");

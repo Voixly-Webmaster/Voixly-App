@@ -8,6 +8,7 @@ import {
   linkConversationToClient,
   sendConversationReply,
   sendTextToCustomer,
+  sendTextToTeammate,
 } from "@/lib/text-ops";
 import { addStaffTicketReply } from "@/lib/ticket-reply";
 import { botError, botJson, type BotContext } from "@/lib/bots";
@@ -161,16 +162,21 @@ function threadJson(thread: {
   id: string;
   phone: string;
   clientId: string | null;
+  userId: string | null;
   unreadCount: number;
   lastPreview: string;
   lastMessageAt: Date;
   client: { companyName: string } | null;
+  user: { name: string | null; email: string; deletedAt: Date | null } | null;
 }) {
+  const teammate = thread.user && !thread.user.deletedAt ? thread.user : null;
   return {
     id: thread.id,
     phone: e164(thread.phone),
     customerId: thread.clientId,
     company: thread.client?.companyName ?? null,
+    userId: teammate ? thread.userId : null,
+    teammate: teammate ? teammate.name?.trim() || teammate.email : null,
     unread: thread.unreadCount,
     preview: thread.lastPreview,
     lastMessageAt: thread.lastMessageAt.toISOString(),
@@ -190,10 +196,12 @@ export async function listTexts(req: Request) {
       id: true,
       phone: true,
       clientId: true,
+      userId: true,
       unreadCount: true,
       lastPreview: true,
       lastMessageAt: true,
       client: { select: { companyName: true } },
+      user: { select: { name: true, email: true, deletedAt: true } },
     },
   });
   return botJson({ texts: threads.map(threadJson) });
@@ -204,6 +212,7 @@ export async function getText(id: string) {
     where: { id },
     include: {
       client: { select: { companyName: true } },
+      user: { select: { name: true, email: true, deletedAt: true } },
       messages: {
         where: { deletedAt: null },
         orderBy: { sentAt: "asc" },
@@ -233,21 +242,12 @@ export async function getText(id: string) {
   });
 }
 
-export async function sendCustomerText(bot: BotContext, customerId: string, req: Request) {
-  const body = await readObject(req);
-  if (body instanceof Response) return body;
-  const clientId = customerId || textOf(body.customerId, 64);
-  if (!clientId) return botError(400, "Send a customerId");
-  const result = await sendTextToCustomer({
-    clientId,
-    body: typeof body.body === "string" ? body.body : "",
-    actor: { actorId: null, botName: bot.name },
-  });
+function textResult(result: Awaited<ReturnType<typeof sendTextToCustomer>>) {
   if ("error" in result) {
-    if (result.error === "That customer was not found") return botError(404, result.error);
-    if (result.error === "That number is already linked to another customer") {
-      return botError(409, result.error);
+    if (result.error === "That customer was not found" || result.error === "That teammate was not found") {
+      return botError(404, result.error);
     }
+    if (result.error.startsWith("That number is already linked")) return botError(409, result.error);
     return botError(400, result.error);
   }
   return botJson({
@@ -257,6 +257,37 @@ export async function sendCustomerText(bot: BotContext, customerId: string, req:
       message: { id: result.messageId, sentAt: result.sentAt },
     },
   });
+}
+
+export async function sendCustomerText(bot: BotContext, customerId: string, req: Request) {
+  const body = await readObject(req);
+  if (body instanceof Response) return body;
+  const userId = textOf(body.userId, 64);
+  const clientId = customerId || textOf(body.customerId, 64);
+  if (userId && clientId) return botError(400, "Send a customerId or a userId, not both");
+  const message = typeof body.body === "string" ? body.body : "";
+  if (userId) {
+    return textResult(
+      await sendTextToTeammate({ userId, body: message, actor: { actorId: null, botName: bot.name } })
+    );
+  }
+  if (!clientId) return botError(400, "Send a customerId or a userId");
+  return textResult(
+    await sendTextToCustomer({ clientId, body: message, actor: { actorId: null, botName: bot.name } })
+  );
+}
+
+export async function sendTeammateText(bot: BotContext, userId: string, req: Request) {
+  const body = await readObject(req);
+  if (body instanceof Response) return body;
+  if (!userId) return botError(400, "Send a userId");
+  return textResult(
+    await sendTextToTeammate({
+      userId,
+      body: typeof body.body === "string" ? body.body : "",
+      actor: { actorId: null, botName: bot.name },
+    })
+  );
 }
 
 export async function replyToText(bot: BotContext, id: string, req: Request) {

@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { revalidatePath } from "next/cache";
-import { Prisma, SmsDirection } from "@prisma/client";
+import { Prisma, SmsDirection, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { logActivity } from "@/lib/activity";
@@ -18,7 +18,8 @@ function safeLog(err: unknown): string {
   return message.replace(/key=[^&\s]+/gi, "key=(hidden)");
 }
 
-type PhoneIndex = { id: string; phone: string | null; twoFactorPhone: string | null }[];
+type PhoneRow = { id: string; phone: string | null; twoFactorPhone: string | null };
+type PhoneIndex = { clients: PhoneRow[]; teammates: PhoneRow[] };
 
 export type ParsedVoidfixMessage =
   | {
@@ -93,27 +94,51 @@ export function parseVoidfixMessage(raw: unknown): ParsedVoidfixMessage | null {
 }
 
 async function loadPhoneIndex(): Promise<PhoneIndex> {
-  const clients = await prisma.client.findMany({
-    where: { deletedAt: null, user: { deletedAt: null } },
-    select: {
-      id: true,
-      phone: true,
-      user: { select: { twoFactorPhone: true } },
-    },
-  });
-  return clients.map((client) => ({
-    id: client.id,
-    phone: client.phone,
-    twoFactorPhone: client.user.twoFactorPhone,
-  }));
+  const [clients, teammates] = await Promise.all([
+    prisma.client.findMany({
+      where: { deletedAt: null, user: { deletedAt: null } },
+      select: {
+        id: true,
+        phone: true,
+        user: { select: { twoFactorPhone: true } },
+      },
+    }),
+    prisma.user.findMany({
+      where: { deletedAt: null, role: { in: [UserRole.ADMIN, UserRole.STAFF] } },
+      select: {
+        id: true,
+        twoFactorPhone: true,
+        staffProfile: { select: { phone: true } },
+      },
+    }),
+  ]);
+  return {
+    clients: clients.map((client) => ({
+      id: client.id,
+      phone: client.phone,
+      twoFactorPhone: client.user.twoFactorPhone,
+    })),
+    teammates: teammates.map((teammate) => ({
+      id: teammate.id,
+      phone: teammate.staffProfile?.phone ?? null,
+      twoFactorPhone: teammate.twoFactorPhone,
+    })),
+  };
 }
 
-function matchClientId(index: PhoneIndex, phone: string): string | null {
-  const hits = index.filter(
-    (client) => phonesMatch(client.phone, phone) || phonesMatch(client.twoFactorPhone, phone)
+function matchOne(rows: PhoneRow[], phone: string): string | null {
+  const hits = rows.filter(
+    (row) => phonesMatch(row.phone, phone) || phonesMatch(row.twoFactorPhone, phone)
   );
-  const ids = [...new Set(hits.map((client) => client.id))];
+  const ids = [...new Set(hits.map((row) => row.id))];
   return ids.length === 1 ? ids[0] : null;
+}
+
+function matchPeople(index: PhoneIndex, phone: string): { clientId: string | null; userId: string | null } {
+  const clientId = matchOne(index.clients, phone);
+  const userId = matchOne(index.teammates, phone);
+  if (clientId && userId) return { clientId: null, userId: null };
+  return { clientId, userId };
 }
 
 async function readCursor(): Promise<number> {
@@ -139,13 +164,16 @@ async function storeInbound(
   try {
     return await prisma.$transaction(async (tx) => {
       const existing = await tx.smsConversation.findUnique({ where: { phone: message.phone } });
-      const matched = existing?.clientId ?? matchClientId(index, message.phone);
+      const matched = matchPeople(index, message.phone);
+      const clientId = existing?.clientId ?? (existing?.userId ? null : matched.clientId);
+      const userId = existing?.userId ?? (clientId ? null : matched.userId);
       const snippet = preview(message.body);
       const conversation = existing
         ? await tx.smsConversation.update({
             where: { id: existing.id },
             data: {
-              clientId: existing.clientId ?? matched,
+              clientId,
+              userId,
               ...(message.sentAt >= existing.lastMessageAt
                 ? { lastMessageAt: message.sentAt, lastPreview: snippet }
                 : {}),
@@ -155,7 +183,8 @@ async function storeInbound(
         : await tx.smsConversation.create({
             data: {
               phone: message.phone,
-              clientId: matched,
+              clientId,
+              userId,
               lastMessageAt: message.sentAt,
               lastPreview: snippet,
               unreadCount: 1,

@@ -13,7 +13,7 @@ import { BOT_SCOPES, INBOX_SCOPES, type BotScope } from "@/lib/bot-scopes";
 const SCOPE_LABELS: Record<BotScope, string> = {
   "customers:read": "Look up customers",
   "texts:read": "Read the text inbox",
-  "texts:reply": "Text a customer, reply, and link a number",
+  "texts:reply": "Text a customer or teammate, reply, and link a number",
   "tasks:write": "Create and update tasks",
   "billing:read": "Read invoices",
   "support:read": "Read support tickets",

@@ -27,11 +27,14 @@ export async function generateMetadata({
     select: {
       phone: true,
       client: { select: { companyName: true } },
+      user: { select: { name: true, email: true, deletedAt: true } },
       messages: { where: { deletedAt: null }, take: 1, select: { id: true } },
     },
   });
   if (!thread || thread.messages.length === 0) return { title: "Text" };
-  return { title: thread.client?.companyName ?? formatPhone(thread.phone) };
+  const teammate =
+    thread.user && !thread.user.deletedAt ? thread.user.name?.trim() || thread.user.email : null;
+  return { title: thread.client?.companyName ?? teammate ?? formatPhone(thread.phone) };
 }
 
 export default async function TextThreadPage({
@@ -45,6 +48,7 @@ export default async function TextThreadPage({
     where: { id },
     include: {
       client: { select: { id: true, companyName: true, contactName: true, deletedAt: true } },
+      user: { select: { id: true, name: true, email: true, role: true, deletedAt: true } },
       messages: {
         where: { deletedAt: null },
         orderBy: { sentAt: "asc" },
@@ -53,9 +57,16 @@ export default async function TextThreadPage({
     },
   });
   if (!thread || thread.messages.length === 0) notFound();
-  if (!thread.clientId || thread.client?.deletedAt) {
+  const teammate =
+    thread.user &&
+    !thread.user.deletedAt &&
+    !thread.clientId &&
+    (thread.user.role === UserRole.ADMIN || thread.user.role === UserRole.STAFF)
+      ? thread.user
+      : null;
+  if (!teammate && (!thread.clientId || thread.client?.deletedAt)) {
     if (user.role !== UserRole.ADMIN) notFound();
-  } else if (!(await canAccessClient(user, thread.clientId))) {
+  } else if (!teammate && thread.clientId && !(await canAccessClient(user, thread.clientId))) {
     notFound();
   }
 
@@ -87,8 +98,13 @@ export default async function TextThreadPage({
     : [];
   const liveTaskIds = new Set(tasks.map((task) => task.id));
 
-  const title = linked ? thread.client!.companyName : "Unknown number";
+  const title = linked
+    ? thread.client!.companyName
+    : teammate
+      ? teammate.name?.trim() || teammate.email
+      : "Unknown number";
   const who = thread.client?.contactName;
+  const teammateRole = teammate?.role === UserRole.ADMIN ? "Admin" : "Staff";
 
   return (
     <div className="space-y-6">
@@ -98,7 +114,9 @@ export default async function TextThreadPage({
         description={
           linked
             ? `${who ? `${who} · ` : ""}${formatPhone(thread.phone)}`
-            : `${formatPhone(thread.phone)} · not linked to a customer yet`
+            : teammate
+              ? `${teammateRole} · ${formatPhone(thread.phone)}`
+              : `${formatPhone(thread.phone)} · not linked to a customer yet`
         }
         action={
           <div className="flex flex-wrap gap-2">
@@ -114,7 +132,7 @@ export default async function TextThreadPage({
         }
       />
 
-      {!linked && user.role === UserRole.ADMIN && (
+      {!linked && !teammate && user.role === UserRole.ADMIN && (
         <Panel
           title="Link this number"
           description="Pick the customer so this thread, and the next texts from this phone, stay on their account."

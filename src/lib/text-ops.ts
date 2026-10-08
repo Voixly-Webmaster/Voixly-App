@@ -84,71 +84,98 @@ export async function sendConversationReply(
   return { ok: true, messageId: saved.id, sentAt: now.toISOString() };
 }
 
-export async function sendTextToCustomer(input: {
-  clientId: string;
-  body: string;
-  actor: Actor;
-}): Promise<
-  | { ok: true; conversationId: string; messageId: string; sentAt: string; phone: string }
-  | { error: string }
-> {
-  const client = await prisma.client.findFirst({
-    where: { id: input.clientId, deletedAt: null },
-    select: {
-      id: true,
-      companyName: true,
-      phone: true,
-      user: { select: { twoFactorPhone: true, deletedAt: true } },
-    },
-  });
-  if (!client || client.user.deletedAt) return { error: "That customer was not found" };
+type TextPerson = {
+  kind: "client" | "user";
+  id: string;
+  name: string;
+  phone: string;
+};
 
-  const phone =
-    normalizePhone(client.phone ?? "") ?? normalizePhone(client.user.twoFactorPhone ?? "");
-  if (!phone) return { error: "Add a full mobile number for this customer" };
-
-  const message = input.body.trim();
-  if (!message) return { error: "Write a message first" };
-  if (message.length > 1000) return { error: "Keep the text under 1000 characters" };
-
+async function threadForPhone(phone: string) {
   const last10 = phone.slice(-10);
   const candidates = await prisma.smsConversation.findMany({
     where: { phone: { contains: last10 } },
-    select: { id: true, phone: true, clientId: true },
+    select: { id: true, phone: true, clientId: true, userId: true },
     take: 20,
   });
-  const match = candidates.find((row) => phonesMatch(row.phone, phone));
-  if (match?.clientId && match.clientId !== client.id) {
+  return candidates.find((row) => phonesMatch(row.phone, phone)) ?? null;
+}
+
+async function numberTaken(
+  existing: { clientId: string | null; userId: string | null } | null,
+  person: TextPerson
+): Promise<string | null> {
+  if (!existing) return null;
+  if (existing.clientId && !(person.kind === "client" && existing.clientId === person.id)) {
     const owner = await prisma.client.findFirst({
-      where: { id: match.clientId, deletedAt: null },
+      where: { id: existing.clientId, deletedAt: null },
       select: { id: true },
     });
-    if (owner) return { error: "That number is already linked to another customer" };
+    if (owner) {
+      return person.kind === "client"
+        ? "That number is already linked to another customer"
+        : "That number is already linked to a customer";
+    }
   }
+  if (existing.userId && !(person.kind === "user" && existing.userId === person.id)) {
+    const owner = await prisma.user.findFirst({
+      where: {
+        id: existing.userId,
+        deletedAt: null,
+        role: { in: [UserRole.ADMIN, UserRole.STAFF] },
+      },
+      select: { id: true },
+    });
+    if (owner) {
+      return person.kind === "user"
+        ? "That number is already linked to another teammate"
+        : "That number is already linked to a teammate";
+    }
+  }
+  return null;
+}
 
-  const sent = await sendSms({ to: phone, message });
+async function sendTextToPerson(
+  person: TextPerson,
+  body: string,
+  actor: Actor
+): Promise<
+  | { ok: true; conversationId: string; messageId: string; sentAt: string; phone: string }
+  | { error: string }
+> {
+  const message = body.trim();
+  if (!message) return { error: "Write a message first" };
+  if (message.length > 1000) return { error: "Keep the text under 1000 characters" };
+
+  const match = await threadForPhone(person.phone);
+  const taken = await numberTaken(match, person);
+  if (taken) return { error: taken };
+
+  const sent = await sendSms({ to: person.phone, message });
   if (!sent.ok) return { error: sent.error };
 
   const now = new Date();
   const preview = message.replace(/\s+/g, " ").slice(0, 160);
+  const owner = {
+    clientId: person.kind === "client" ? person.id : null,
+    userId: person.kind === "user" ? person.id : null,
+  };
   const record = async () =>
     prisma.$transaction(async (tx) => {
       const existing = match
         ? await tx.smsConversation.findUnique({ where: { id: match.id } })
-        : await tx.smsConversation.findUnique({ where: { phone } });
+        : await tx.smsConversation.findUnique({ where: { phone: person.phone } });
+      const blocked = await numberTaken(existing, person);
+      if (blocked) throw new Error(blocked);
       const conversation = existing
         ? await tx.smsConversation.update({
             where: { id: existing.id },
-            data: {
-              clientId: existing.clientId ?? client.id,
-              lastMessageAt: now,
-              lastPreview: preview,
-            },
+            data: { ...owner, lastMessageAt: now, lastPreview: preview },
           })
         : await tx.smsConversation.create({
             data: {
-              phone,
-              clientId: client.id,
+              phone: person.phone,
+              ...owner,
               lastMessageAt: now,
               lastPreview: preview,
               unreadCount: 0,
@@ -172,14 +199,16 @@ export async function sendTextToCustomer(input: {
   try {
     saved = await record();
   } catch (err) {
+    if (err instanceof Error && err.message.startsWith("That number is already linked")) {
+      return { error: err.message };
+    }
     if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== "P2002") throw err;
     const existing = await prisma.smsConversation.findFirst({
-      where: { OR: [{ phone }, ...(match ? [{ id: match.id }] : [])] },
-      select: { id: true, clientId: true },
+      where: { OR: [{ phone: person.phone }, ...(match ? [{ id: match.id }] : [])] },
+      select: { id: true, clientId: true, userId: true },
     });
-    if (!existing || (existing.clientId && existing.clientId !== client.id)) {
-      return { error: "Could not save the text" };
-    }
+    const blocked = await numberTaken(existing, person);
+    if (!existing || blocked) return { error: blocked ?? "Could not save the text" };
     const created = await prisma.smsMessage.create({
       data: {
         conversationId: existing.id,
@@ -193,31 +222,102 @@ export async function sendTextToCustomer(input: {
     });
     await prisma.smsConversation.update({
       where: { id: existing.id },
-      data: { lastMessageAt: now, lastPreview: preview },
+      data: { ...owner, lastMessageAt: now, lastPreview: preview },
     });
     saved = { conversationId: existing.id, messageId: created.id };
   }
 
   try {
     await logActivity({
-      actorId: input.actor.actorId ?? undefined,
-      clientId: client.id,
+      actorId: actor.actorId ?? undefined,
+      clientId: person.kind === "client" ? person.id : undefined,
       action: "sms.sent",
       entityType: "sms",
       entityId: saved.conversationId,
-      metadata: botMeta(input.actor, { phone, companyName: client.companyName }),
+      metadata: botMeta(actor, {
+        phone: person.phone,
+        ...(person.kind === "client" ? { companyName: person.name } : { name: person.name }),
+      }),
     });
   } catch (err) {
     console.error("[texts] activity log failed", err);
   }
 
   refreshTexts(saved.conversationId);
-  try {
-    revalidatePath(`/admin/clients/${client.id}`);
-  } catch (err) {
-    console.error("[texts] revalidate failed", err);
+  if (person.kind === "client") {
+    try {
+      revalidatePath(`/admin/clients/${person.id}`);
+    } catch (err) {
+      console.error("[texts] revalidate failed", err);
+    }
   }
-  return { ok: true, ...saved, sentAt: now.toISOString(), phone };
+  return { ok: true, ...saved, sentAt: now.toISOString(), phone: person.phone };
+}
+
+export async function sendTextToCustomer(input: {
+  clientId: string;
+  body: string;
+  actor: Actor;
+}): Promise<
+  | { ok: true; conversationId: string; messageId: string; sentAt: string; phone: string }
+  | { error: string }
+> {
+  const client = await prisma.client.findFirst({
+    where: { id: input.clientId, deletedAt: null },
+    select: {
+      id: true,
+      companyName: true,
+      phone: true,
+      user: { select: { twoFactorPhone: true, deletedAt: true } },
+    },
+  });
+  if (!client || client.user.deletedAt) return { error: "That customer was not found" };
+
+  const phone =
+    normalizePhone(client.phone ?? "") ?? normalizePhone(client.user.twoFactorPhone ?? "");
+  if (!phone) return { error: "Add a full mobile number for this customer" };
+
+  return sendTextToPerson(
+    { kind: "client", id: client.id, name: client.companyName, phone },
+    input.body,
+    input.actor
+  );
+}
+
+export async function sendTextToTeammate(input: {
+  userId: string;
+  body: string;
+  actor: Actor;
+}): Promise<
+  | { ok: true; conversationId: string; messageId: string; sentAt: string; phone: string }
+  | { error: string }
+> {
+  const teammate = await prisma.user.findFirst({
+    where: {
+      id: input.userId,
+      deletedAt: null,
+      role: { in: [UserRole.ADMIN, UserRole.STAFF] },
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      twoFactorPhone: true,
+      staffProfile: { select: { phone: true } },
+    },
+  });
+  if (!teammate) return { error: "That teammate was not found" };
+
+  const phone =
+    normalizePhone(teammate.staffProfile?.phone ?? "") ??
+    normalizePhone(teammate.twoFactorPhone ?? "");
+  if (!phone) return { error: "Add a full mobile number for this teammate" };
+
+  return sendTextToPerson(
+    { kind: "user", id: teammate.id, name: teammate.name?.trim() || teammate.email, phone },
+    input.body,
+    input.actor
+  );
 }
 
 export async function linkConversationToClient(
@@ -239,7 +339,7 @@ export async function linkConversationToClient(
   await prisma.$transaction(async (tx) => {
     await tx.smsConversation.update({
       where: { id: conversation.id },
-      data: { clientId: client.id },
+      data: { clientId: client.id, userId: null },
     });
     if (!client.phone?.trim()) {
       await tx.client.update({

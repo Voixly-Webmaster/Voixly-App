@@ -122,6 +122,7 @@ model User {
   passwordResets  PasswordResetToken[]
   accountInvites  AccountInvite[]
   botTokens       BotToken[]
+  smsConversations SmsConversation[]
 
   @@index([role])
   @@index([deletedAt])
@@ -397,6 +398,8 @@ model SmsConversation {
   id            String   @id @default(cuid())
   phone         String   @unique
   clientId      String?
+  /** Staff or admin this thread belongs to, when it is not a customer. */
+  userId        String?
   lastMessageAt DateTime
   lastPreview   String
   unreadCount   Int      @default(0)
@@ -404,9 +407,11 @@ model SmsConversation {
   updatedAt     DateTime @updatedAt
 
   client   Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  user     User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   messages SmsMessage[]
 
   @@index([clientId])
+  @@index([userId])
   @@index([lastMessageAt])
   @@map("sms_conversations")
 }
