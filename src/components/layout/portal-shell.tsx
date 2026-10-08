@@ -26,12 +26,21 @@ const baseNav = [
 export function PortalShell({
   children,
   userName,
+  avatarUrl,
   showInsights = false,
 }: {
   children: React.ReactNode;
   userName?: string | null;
+  avatarUrl?: string | null;
   showInsights?: boolean;
 }) {
+  const bottomNav = [
+    { href: "/portal", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/portal/support", label: "Support", icon: MessageSquare },
+    { href: "/portal/projects", label: "Projects", icon: FolderKanban },
+    { href: "/portal/announcements", label: "Announcements", icon: Megaphone },
+  ];
+
   const navItems = showInsights
     ? [
         ...baseNav.slice(0, 4),
@@ -47,8 +56,10 @@ export function PortalShell({
         title="Voixly"
         subtitle="ClientHub"
         userName={userName}
+        avatarUrl={avatarUrl}
         userRole="CLIENT"
         searchPlaceholder="Search invoices, tickets, projects..."
+        bottomNav={bottomNav}
       >
         {children}
       </AppShell>

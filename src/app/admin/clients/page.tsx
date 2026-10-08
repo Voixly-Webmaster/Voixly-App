@@ -20,6 +20,7 @@ import {
 } from "@/components/shared/pagination";
 import { Button } from "@/components/ui/button";
 import { InviteClientForm } from "@/components/clients/invite-client-form";
+import { ClientLogo } from "@/components/clients/client-logo";
 import { ClientTier, UserRole } from "@prisma/client";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { intervalLabel } from "@/lib/billing";
@@ -127,7 +128,17 @@ export default async function AdminClientsPage({
       <DataTable headers={["Company", "Tier", "Contact", "Email", "Since", ""]}>
         {clients.map((c) => (
           <DataTableRow key={c.id}>
-            <DataTableCell className="font-medium">{c.companyName}</DataTableCell>
+            <DataTableCell className="font-medium">
+              <span className="flex items-center gap-3">
+                <ClientLogo
+                  clientId={c.id}
+                  name={c.companyName}
+                  logoFileName={c.logoFileName}
+                  size="sm"
+                />
+                {c.companyName}
+              </span>
+            </DataTableCell>
             <DataTableCell>
               <ClientTierBadge tier={c.tier} />
             </DataTableCell>

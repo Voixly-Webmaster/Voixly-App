@@ -137,6 +137,7 @@ export default async function AdminDashboardPage() {
   const unreadTexts = await prisma.smsConversation.count({
     where: {
       unreadCount: { gt: 0 },
+      messages: { some: { deletedAt: null } },
       ...(scope === "all"
         ? {}
         : { clientId: { in: scope.length ? scope : ["__none__"] } }),

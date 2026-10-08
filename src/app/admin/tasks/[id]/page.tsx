@@ -44,7 +44,7 @@ export default async function AdminTaskPage({
         orderBy: { createdAt: "asc" },
         include: { author: { select: { name: true } } },
       },
-      smsMessage: { select: { conversationId: true } },
+      smsMessage: { select: { conversationId: true, deletedAt: true } },
     },
   });
 
@@ -60,7 +60,7 @@ export default async function AdminTaskPage({
         description={task.client?.companyName ?? "Internal task"}
         action={
           <div className="flex flex-wrap gap-2">
-            {task.smsMessage && (
+            {task.smsMessage && !task.smsMessage.deletedAt && (
               <Button variant="outline" size="sm" asChild>
                 <Link href={`/admin/texts/${task.smsMessage.conversationId}`}>View text</Link>
               </Button>

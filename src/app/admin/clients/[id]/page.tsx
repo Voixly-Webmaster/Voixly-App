@@ -22,6 +22,7 @@ import { selectClassName } from "@/lib/ui";
 import { Building2, StickyNote, Receipt, Users } from "lucide-react";
 import { PendingSubmit } from "@/components/shared/pending-submit";
 import { ResendInviteButton } from "@/components/clients/resend-invite-button";
+import { ClientLogoForm } from "@/components/clients/client-logo";
 
 export default async function AdminClientDetailPage({
   params,
@@ -97,6 +98,13 @@ export default async function AdminClientDetailPage({
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel title="Profile" description="Client contact and company details" icon={Building2} accent="secondary">
+          <div className="mb-5 border-b border-border/60 pb-5">
+            <ClientLogoForm
+              clientId={client.id}
+              companyName={client.companyName}
+              logoFileName={client.logoFileName}
+            />
+          </div>
           <form action={updateClientProfile} className="space-y-4">
             <input type="hidden" name="clientId" value={client.id} />
             <div className="space-y-2">

@@ -2,6 +2,8 @@
 
 import { Menu, LogOut, Search, X } from "lucide-react";
 import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Sidebar, type NavItem } from "@/components/layout/sidebar";
@@ -17,6 +19,8 @@ export function AppShell({
   subtitle,
   userName,
   userRole,
+  avatarUrl,
+  bottomNav,
   searchPlaceholder = "Search clients, invoices, tickets...",
 }: {
   children: React.ReactNode;
@@ -25,6 +29,8 @@ export function AppShell({
   subtitle?: string;
   userName?: string | null;
   userRole?: "ADMIN" | "STAFF" | "CLIENT";
+  avatarUrl?: string | null;
+  bottomNav?: NavItem[];
   searchPlaceholder?: string;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -121,6 +127,15 @@ export function AppShell({
             <ThemeToggle />
             {(userName || roleLabel) && (
               <span className="hidden items-center gap-2 rounded-full bg-muted/80 px-3 py-1 text-sm text-muted-foreground md:inline-flex">
+                {avatarUrl && (
+                  // Session-checked logo. A plain img keeps the private route.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatarUrl}
+                    alt=""
+                    className="h-6 w-6 rounded-md object-contain"
+                  />
+                )}
                 {userName}
                 {roleLabel && (
                   <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
@@ -141,8 +156,58 @@ export function AppShell({
             </Button>
           </div>
         </header>
-        <main className={cn("flex-1 p-4 lg:p-8", pageMaxWidth)}>{children}</main>
+        <main
+          className={cn(
+            "flex-1 p-4 lg:p-8",
+            bottomNav && "pb-24 lg:pb-8",
+            pageMaxWidth
+          )}
+        >
+          {children}
+        </main>
+        {bottomNav && bottomNav.length > 0 && <MobileBottomNav items={bottomNav} />}
       </div>
     </div>
+  );
+}
+
+function MobileBottomNav({ items }: { items: NavItem[] }) {
+  const pathname = usePathname();
+
+  return (
+    <nav
+      aria-label="Main"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-card/95 backdrop-blur-md lg:hidden"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
+      <ul className="grid grid-cols-4">
+        {items.map((item) => {
+          const active =
+            item.href === "/portal"
+              ? pathname === "/portal"
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const Icon = item.icon;
+          return (
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                aria-label={item.label}
+                aria-current={active ? "page" : undefined}
+                className="flex h-14 items-center justify-center"
+              >
+                <span
+                  className={cn(
+                    "flex h-10 w-12 items-center justify-center rounded-2xl",
+                    active ? "bg-primary/15 text-primary" : "text-muted-foreground"
+                  )}
+                >
+                  <Icon className="h-6 w-6" strokeWidth={active ? 2.25 : 1.75} aria-hidden />
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
   );
 }

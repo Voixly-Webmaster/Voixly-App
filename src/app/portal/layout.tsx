@@ -16,6 +16,12 @@ export default async function PortalLayout({
   children: React.ReactNode;
 }) {
   const user = await requireClient();
+  const client = user.clientId
+    ? await prisma.client.findUnique({
+        where: { id: user.clientId },
+        select: { id: true, logoFileName: true },
+      })
+    : null;
   const insights = user.clientId
     ? await prisma.clientGoogleIntegration.findFirst({
         where: {
@@ -30,7 +36,15 @@ export default async function PortalLayout({
   );
 
   return (
-    <PortalShell userName={user.name} showInsights={showInsights}>
+    <PortalShell
+      userName={user.name}
+      avatarUrl={
+        client?.logoFileName
+          ? `/api/clients/${client.id}/logo?v=${encodeURIComponent(client.logoFileName)}`
+          : null
+      }
+      showInsights={showInsights}
+    >
       {children}
     </PortalShell>
   );

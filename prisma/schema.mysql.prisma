@@ -182,6 +182,8 @@ model Client {
   balanceCents    Int       @default(0)
   notes           String?   @db.Text
   tier            ClientTier?
+  /** Stored filename for the company logo. Served only to people who can see this client. */
+  logoFileName    String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
@@ -406,6 +408,7 @@ model SmsMessage {
   status         String?
   sentAt         DateTime
   taskId         String?      @unique
+  deletedAt      DateTime?
   createdAt      DateTime     @default(now())
 
   conversation SmsConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)

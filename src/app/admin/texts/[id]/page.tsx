@@ -7,13 +7,8 @@ import { canAccessClient } from "@/lib/permissions";
 import { PageHeader } from "@/components/shared/page-header";
 import { Panel } from "@/components/shared/panel";
 import { Button } from "@/components/ui/button";
-import {
-  LinkCustomerForm,
-  MakeTaskButton,
-  MarkTextsRead,
-  ReplyForm,
-  ViewTaskLink,
-} from "@/components/texts/text-actions";
+import { LinkCustomerForm, MarkTextsRead, ReplyForm } from "@/components/texts/text-actions";
+import { TextThreadMessages } from "@/components/texts/text-inbox";
 import { formatPhone } from "@/lib/phone";
 import { formatDateTime } from "@/lib/utils";
 import { SmsDirection, UserRole } from "@prisma/client";
@@ -29,9 +24,14 @@ export async function generateMetadata({
   const { id } = await params;
   const thread = await prisma.smsConversation.findUnique({
     where: { id },
-    select: { client: { select: { companyName: true } }, phone: true },
+    select: {
+      phone: true,
+      client: { select: { companyName: true } },
+      messages: { where: { deletedAt: null }, take: 1, select: { id: true } },
+    },
   });
-  return { title: thread?.client?.companyName ?? (thread ? formatPhone(thread.phone) : "Text") };
+  if (!thread || thread.messages.length === 0) return { title: "Text" };
+  return { title: thread.client?.companyName ?? formatPhone(thread.phone) };
 }
 
 export default async function TextThreadPage({
@@ -45,10 +45,14 @@ export default async function TextThreadPage({
     where: { id },
     include: {
       client: { select: { id: true, companyName: true, contactName: true, deletedAt: true } },
-      messages: { orderBy: { sentAt: "asc" }, take: 200 },
+      messages: {
+        where: { deletedAt: null },
+        orderBy: { sentAt: "asc" },
+        take: 200,
+      },
     },
   });
-  if (!thread) notFound();
+  if (!thread || thread.messages.length === 0) notFound();
   if (!thread.clientId || thread.client?.deletedAt) {
     if (user.role !== UserRole.ADMIN) notFound();
   } else if (!(await canAccessClient(user, thread.clientId))) {
@@ -130,54 +134,24 @@ export default async function TextThreadPage({
       )}
 
       <Panel title="Conversation" icon={Smartphone} accent="none">
-        <ol className="space-y-4">
-          {thread.messages.map((message) => {
-            const inbound = message.direction === SmsDirection.INBOUND;
-            const taskId = message.taskId && liveTaskIds.has(message.taskId) ? message.taskId : null;
-            return (
-              <li key={message.id} className={inbound ? "mr-8 sm:mr-16" : "ml-8 sm:ml-16"}>
-                <div
-                  className={
-                    inbound
-                      ? "rounded-2xl rounded-tl-md bg-muted px-4 py-3"
-                      : "rounded-2xl rounded-tr-md bg-primary/10 px-4 py-3"
-                  }
-                >
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.body}</p>
-                </div>
-                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <span>{inbound ? "Customer" : "Voixly"}</span>
-                  <time dateTime={message.sentAt.toISOString()}>{formatDateTime(message.sentAt)}</time>
-                  {inbound && OPT_OUT.test(message.body.trim()) && (
-                    <span className="rounded-full bg-destructive/10 px-2 py-0.5 font-medium text-destructive">
-                      Opt-out
-                    </span>
-                  )}
-                </div>
-                {inbound && (
-                  <div className="mt-2">
-                    {taskId ? (
-                      <ViewTaskLink taskId={taskId} />
-                    ) : linked ? (
-                      <MakeTaskButton
-                        messageId={message.id}
-                        defaultAssigneeId={user.id}
-                        assignees={assignees.map((person) => ({
-                          id: person.id,
-                          label: person.name?.trim() || person.email,
-                        }))}
-                      />
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        Link a customer to turn this into a task.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ol>
+        <TextThreadMessages
+          conversationId={thread.id}
+          linked={linked}
+          defaultAssigneeId={user.id}
+          assignees={assignees.map((person) => ({
+            id: person.id,
+            label: person.name?.trim() || person.email,
+          }))}
+          messages={thread.messages.map((message) => ({
+            id: message.id,
+            body: message.body,
+            inbound: message.direction === SmsDirection.INBOUND,
+            sentAtLabel: formatDateTime(message.sentAt),
+            sentAtIso: message.sentAt.toISOString(),
+            optOut: message.direction === SmsDirection.INBOUND && OPT_OUT.test(message.body.trim()),
+            taskId: message.taskId && liveTaskIds.has(message.taskId) ? message.taskId : null,
+          }))}
+        />
       </Panel>
 
       <Panel title="Reply" description="Sends from your Voixly number" accent="secondary">

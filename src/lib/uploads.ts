@@ -42,6 +42,60 @@ const ALLOWED_EXTENSIONS = new Set<string>([
   ".txt", ".csv", ".md",
 ]);
 
+const LOGO_TYPES = {
+  png: "image/png",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+} as const;
+
+export type LogoKind = keyof typeof LOGO_TYPES;
+
+export const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+
+/** Recognize a real PNG, JPEG, GIF, or WebP. A renamed file is rejected. */
+export function logoKind(bytes: Uint8Array): LogoKind | null {
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
+    return "png";
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "jpeg";
+  }
+  if (
+    bytes.length >= 6 &&
+    bytes[0] === 0x47 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x38 &&
+    (bytes[4] === 0x37 || bytes[4] === 0x39) &&
+    bytes[5] === 0x61
+  ) {
+    return "gif";
+  }
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  ) {
+    return "webp";
+  }
+  return null;
+}
+
+export function logoMimeType(fileName: string): string {
+  const ext = path.extname(fileName).toLowerCase().replace(".", "");
+  if (ext === "jpg" || ext === "jpeg") return LOGO_TYPES.jpeg;
+  if (ext === "gif") return LOGO_TYPES.gif;
+  if (ext === "webp") return LOGO_TYPES.webp;
+  return LOGO_TYPES.png;
+}
+
 export function isAllowedFile(originalName: string, mimeType: string): boolean {
   if (mimeType && ALLOWED_MIME_TYPES.has(mimeType.toLowerCase())) return true;
   const ext = path.extname(originalName).toLowerCase();

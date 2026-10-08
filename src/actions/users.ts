@@ -9,7 +9,6 @@ import { prisma } from "@/lib/db";
 import { requireAdminRole } from "@/lib/session-guard";
 import { logActivity } from "@/lib/activity";
 import { revokeSignInMaterial } from "@/lib/auth-codes";
-import { sendClientWelcome } from "@/lib/email";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
 import { storedFilePath } from "@/lib/uploads";
 
@@ -36,7 +35,6 @@ export async function createUser(
     const name = String(formData.get("name") ?? "").trim();
     const password = String(formData.get("password") ?? "");
     const role = parseRole(formData.get("role"));
-    const companyName = String(formData.get("companyName") ?? "").trim();
 
     if (!role) return { error: "Choose a role" };
     if (role === UserRole.CLIENT) {
@@ -57,12 +55,7 @@ export async function createUser(
         name,
         role,
         passwordHash,
-        ...(role === UserRole.CLIENT
-          ? { clientProfile: { create: { companyName, contactName: name } } }
-          : {}),
-        ...(role === UserRole.STAFF || role === UserRole.ADMIN
-          ? { staffProfile: { create: {} } }
-          : {}),
+        staffProfile: { create: {} },
       },
     });
 
@@ -78,17 +71,8 @@ export async function createUser(
       console.error("[users] activity log failed", err);
     }
 
-    const welcomeSent =
-      role === UserRole.CLIENT
-        ? await sendClientWelcome({
-            email,
-            name,
-            companyName,
-          })
-        : false;
-
     revalidatePath(USERS_PATH);
-    return { welcomeSent, role };
+    return { welcomeSent: false, role };
   } catch (err) {
     unstable_rethrow(err);
     console.error("[users] create failed", err);
@@ -287,7 +271,9 @@ export async function deleteUser(
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        clientProfile: { select: { id: true, companyName: true, stripeCustomerId: true } },
+        clientProfile: {
+          select: { id: true, companyName: true, stripeCustomerId: true, logoFileName: true },
+        },
       },
     });
     if (!user) return { error: "User not found" };
@@ -351,7 +337,10 @@ export async function deleteUser(
       { timeout: 20_000 }
     );
 
-    await removeStoredFiles(clientFiles.map((file) => file.fileName));
+    await removeStoredFiles([
+      ...clientFiles.map((file) => file.fileName),
+      ...(client?.logoFileName ? [client.logoFileName] : []),
+    ]);
 
     try {
       await logActivity({

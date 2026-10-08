@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/shared/page-header";
 
 import { FormPanel } from "@/components/shared/form-panel";
 import { OwnProfileForm } from "@/components/clients/own-profile-form";
+import { ClientLogo } from "@/components/clients/client-logo";
 import { AccountSecurity } from "@/components/auth/account-security";
 import { User } from "lucide-react";
 
@@ -31,6 +32,20 @@ export default async function PortalProfilePage() {
         icon={User}
         className="max-w-lg"
       >
+        <div className="mb-5 flex items-center gap-3 border-b border-border/60 pb-5">
+          <ClientLogo
+            clientId={client.id}
+            name={client.companyName}
+            logoFileName={client.logoFileName}
+            size="lg"
+          />
+          <div>
+            <p className="text-sm font-medium">{client.companyName}</p>
+            <p className="text-xs text-muted-foreground">
+              Your account team sets the logo.
+            </p>
+          </div>
+        </div>
         <OwnProfileForm
           companyName={client.companyName}
           email={client.user.email}

@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { SearchInput } from "@/components/shared/search-input";
 import { SyncTextsButton } from "@/components/texts/text-actions";
+import { TextInboxList } from "@/components/texts/text-inbox";
 import { formatPhone } from "@/lib/phone";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
@@ -47,7 +48,7 @@ export default async function TextsPage({
         ]
       : []),
   ];
-  const where = filters.length > 0 ? { AND: filters } : {};
+  const where = { AND: [{ messages: { some: { deletedAt: null } } }, ...filters] };
 
   const [threads, filteredClient] = await Promise.all([
     prisma.smsConversation.findMany({
@@ -105,44 +106,19 @@ export default async function TextsPage({
           }
         />
       ) : (
-        <ul className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
-          {threads.map((thread) => {
-            const name =
+        <TextInboxList
+          threads={threads.map((thread) => ({
+            id: thread.id,
+            name:
               thread.client?.companyName ??
-              `Unknown number · ${formatPhone(thread.phone)}`;
-            return (
-              <li key={thread.id} className="border-b border-border/60 last:border-b-0">
-                <Link
-                  href={`/admin/texts/${thread.id}`}
-                  className="flex items-start justify-between gap-4 px-5 py-4 transition-colors hover:bg-muted/40"
-                >
-                  <div className="min-w-0">
-                    <p className="flex flex-wrap items-center gap-2 font-medium">
-                      {name}
-                      {thread.unreadCount > 0 && (
-                        <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
-                          {thread.unreadCount} new
-                        </span>
-                      )}
-                      {!thread.client && (
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                          Needs a customer
-                        </span>
-                      )}
-                    </p>
-                    <p className="mt-1 truncate text-sm text-muted-foreground">
-                      {thread.client ? `${formatPhone(thread.phone)} · ` : ""}
-                      {thread.lastPreview}
-                    </p>
-                  </div>
-                  <time className="shrink-0 text-xs text-muted-foreground">
-                    {formatRelativeTime(thread.lastMessageAt)}
-                  </time>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+              `Unknown number · ${formatPhone(thread.phone)}`,
+            preview: thread.lastPreview,
+            when: formatRelativeTime(thread.lastMessageAt),
+            unread: thread.unreadCount,
+            needsCustomer: !thread.client,
+            phonePrefix: thread.client ? `${formatPhone(thread.phone)} · ` : "",
+          }))}
+        />
       )}
     </div>
   );
