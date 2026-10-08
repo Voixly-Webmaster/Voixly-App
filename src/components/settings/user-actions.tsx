@@ -14,18 +14,29 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/providers/toast-provider";
 import { useConfirm } from "@/components/shared/confirm-dialog";
+import { actionErrorMessage } from "@/lib/action-error";
 import {
   updateUserRole,
   resetUserPassword,
   setUserActive,
+  deleteUser,
 } from "@/actions/users";
 import { clearUserTwoFactor } from "@/actions/account-access";
-import { KeyRound, Loader2, ShieldCheck, ShieldOff, UserX, UserCheck } from "lucide-react";
+import {
+  KeyRound,
+  Loader2,
+  ShieldCheck,
+  ShieldOff,
+  Trash2,
+  UserX,
+  UserCheck,
+} from "lucide-react";
 
 export function UserActions({
   userId,
   userName,
   email,
+  companyName,
   role,
   active,
   isSelf,
@@ -34,6 +45,7 @@ export function UserActions({
   userId: string;
   userName: string;
   email: string;
+  companyName: string | null;
   role: "ADMIN" | "STAFF" | "CLIENT";
   active: boolean;
   isSelf: boolean;
@@ -54,7 +66,7 @@ export function UserActions({
         setResetOpen(false);
         setRoleOpen(false);
       } catch (err) {
-        error("Action failed", err instanceof Error ? err.message : undefined);
+        error("Action failed", actionErrorMessage(err));
       }
     });
   };
@@ -64,7 +76,7 @@ export function UserActions({
   }
 
   return (
-    <div className="flex items-center justify-end gap-1.5">
+    <div className="flex flex-wrap items-center justify-end gap-1.5">
       {role !== "CLIENT" && (
         <Button
           variant="outline"
@@ -142,6 +154,41 @@ export function UserActions({
           Reactivate
         </Button>
       )}
+
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={pending}
+        className="text-destructive hover:text-destructive"
+        onClick={async () => {
+          const company = companyName || "their company";
+          const ok = await confirm({
+            title: `Delete ${userName}?`,
+            description:
+              role === "CLIENT"
+                ? `This permanently removes ${email} and ${company}, including invoices, tickets, and files. Any Stripe subscription for that company is cancelled.`
+                : `This permanently removes ${email}. That email can be used again. Tasks, ticket replies, notes, and files they created stay, attributed to you.`,
+            confirmLabel: "Delete user",
+            tone: "destructive",
+          });
+          if (!ok) return;
+          startTransition(async () => {
+            try {
+              const result = await deleteUser(userId);
+              if ("error" in result) {
+                error("Could not delete user", result.error);
+                return;
+              }
+              success("User deleted");
+            } catch (err) {
+              error("Could not delete user", actionErrorMessage(err));
+            }
+          });
+        }}
+      >
+        <Trash2 className="h-3.5 w-3.5" aria-hidden />
+        Delete
+      </Button>
 
       {/* Change role dialog */}
       <Dialog open={roleOpen} onOpenChange={setRoleOpen}>

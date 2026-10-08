@@ -1,5 +1,6 @@
 "use server";
 
+import { unlink } from "fs/promises";
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import bcrypt from "bcryptjs";
@@ -9,6 +10,8 @@ import { requireAdminRole } from "@/lib/session-guard";
 import { logActivity } from "@/lib/activity";
 import { revokeSignInMaterial } from "@/lib/auth-codes";
 import { sendClientWelcome } from "@/lib/email";
+import { getStripe, isStripeConfigured } from "@/lib/stripe";
+import { storedFilePath } from "@/lib/uploads";
 
 const USERS_PATH = "/admin/settings/users";
 
@@ -209,4 +212,179 @@ export async function setUserActive(userId: string, active: boolean) {
   });
 
   revalidatePath(USERS_PATH);
+}
+
+function stripeResourceMissing(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const code = "code" in err ? (err as { code?: unknown }).code : undefined;
+  const status = "statusCode" in err ? (err as { statusCode?: unknown }).statusCode : undefined;
+  return code === "resource_missing" || status === 404;
+}
+
+/** Stop Stripe billing before the local client row is removed. */
+async function cancelClientBilling(
+  clientId: string,
+  stripeCustomerId: string | null
+): Promise<string | null> {
+  const recurring = await prisma.recurringInvoice.findMany({
+    where: { clientId, stripeSubscriptionId: { not: null } },
+    select: { stripeSubscriptionId: true },
+  });
+  const subscriptionIds = recurring
+    .map((row) => row.stripeSubscriptionId)
+    .filter((id): id is string => Boolean(id));
+
+  if (!stripeCustomerId && subscriptionIds.length === 0) return null;
+  if (!(await isStripeConfigured())) {
+    return "Stripe is not configured, so this client's billing could not be cancelled.";
+  }
+
+  const stripe = await getStripe();
+  for (const subscriptionId of subscriptionIds) {
+    try {
+      await stripe.subscriptions.cancel(subscriptionId);
+    } catch (err) {
+      if (stripeResourceMissing(err)) continue;
+      console.error("[users] cancel subscription failed", err);
+      return "Could not cancel this client's Stripe subscription.";
+    }
+  }
+
+  if (stripeCustomerId) {
+    try {
+      await stripe.customers.del(stripeCustomerId);
+    } catch (err) {
+      if (stripeResourceMissing(err)) return null;
+      console.error("[users] delete Stripe customer failed", err);
+      return "Could not remove this client's Stripe customer.";
+    }
+  }
+
+  return null;
+}
+
+async function removeStoredFiles(fileNames: string[]) {
+  for (const fileName of fileNames) {
+    try {
+      await unlink(storedFilePath(fileName));
+    } catch (err) {
+      const code =
+        typeof err === "object" && err !== null && "code" in err
+          ? (err as { code?: string }).code
+          : undefined;
+      if (code !== "ENOENT") console.error("[users] file cleanup failed", err);
+    }
+  }
+}
+
+export async function deleteUser(
+  userId: string
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    const admin = await requireAdminRole();
+    if (userId === admin.id) return { error: "You cannot delete your own account" };
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        clientProfile: { select: { id: true, companyName: true, stripeCustomerId: true } },
+      },
+    });
+    if (!user) return { error: "User not found" };
+
+    if (user.role === UserRole.ADMIN && !user.deletedAt) {
+      const remaining = await prisma.user.count({
+        where: { role: UserRole.ADMIN, deletedAt: null, id: { not: userId } },
+      });
+      if (remaining === 0) return { error: "Keep at least one active admin" };
+    }
+
+    const client = user.clientProfile;
+    if (client) {
+      const billingError = await cancelClientBilling(client.id, client.stripeCustomerId);
+      if (billingError) return { error: billingError };
+    }
+
+    const clientFiles = client
+      ? await prisma.fileUpload.findMany({
+          where: { clientId: client.id },
+          select: { fileName: true },
+        })
+      : [];
+
+    await prisma.$transaction(
+      async (tx) => {
+        if (client) {
+          await tx.taskComment.deleteMany({ where: { task: { clientId: client.id } } });
+          await tx.task.deleteMany({ where: { clientId: client.id } });
+          await tx.ticketMessage.deleteMany({ where: { ticket: { clientId: client.id } } });
+          await tx.supportTicket.deleteMany({ where: { clientId: client.id } });
+          await tx.clientNote.deleteMany({ where: { clientId: client.id } });
+          await tx.fileUpload.deleteMany({ where: { clientId: client.id } });
+        }
+
+        // These columns are required, so leftover rows are kept under the admin
+        // who deleted the account instead of blocking the delete.
+        await tx.task.updateMany({
+          where: { createdById: userId },
+          data: { createdById: admin.id },
+        });
+        await tx.taskComment.updateMany({
+          where: { authorId: userId },
+          data: { authorId: admin.id },
+        });
+        await tx.ticketMessage.updateMany({
+          where: { authorId: userId },
+          data: { authorId: admin.id },
+        });
+        await tx.clientNote.updateMany({
+          where: { authorId: userId },
+          data: { authorId: admin.id },
+        });
+        await tx.fileUpload.updateMany({
+          where: { uploadedById: userId },
+          data: { uploadedById: admin.id },
+        });
+
+        await tx.user.delete({ where: { id: userId } });
+      },
+      { timeout: 20_000 }
+    );
+
+    await removeStoredFiles(clientFiles.map((file) => file.fileName));
+
+    try {
+      await logActivity({
+        actorId: admin.id,
+        action: "user.deleted",
+        entityType: "user",
+        entityId: userId,
+        metadata: {
+          email: user.email,
+          role: user.role,
+          ...(client ? { companyName: client.companyName } : {}),
+        },
+      });
+    } catch (err) {
+      console.error("[users] activity log failed", err);
+    }
+
+    revalidatePath(USERS_PATH);
+    revalidatePath("/admin/clients");
+    revalidatePath("/admin/invoices");
+    revalidatePath("/admin/tickets");
+    revalidatePath("/admin/files");
+    revalidatePath("/admin/tasks");
+    revalidatePath("/admin/activity");
+    return { ok: true };
+  } catch (err) {
+    unstable_rethrow(err);
+    console.error("[users] delete failed", err);
+    const code = databaseCode(err);
+    return {
+      error: code
+        ? `Could not delete the user (${code}).`
+        : "Could not delete the user. Try again.",
+    };
+  }
 }

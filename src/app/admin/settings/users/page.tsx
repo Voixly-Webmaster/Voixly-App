@@ -92,6 +92,7 @@ export default async function UsersSettingsPage() {
                   userId={u.id}
                   userName={u.name ?? u.email}
                   email={u.email}
+                  companyName={u.clientProfile?.companyName ?? null}
                   role={u.role}
                   active={active}
                   isSelf={u.id === admin.id}

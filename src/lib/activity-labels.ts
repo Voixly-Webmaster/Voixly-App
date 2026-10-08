@@ -9,6 +9,7 @@ const ACTION_LABELS: Record<string, string> = {
   "message.template_reset": "Restored a message template",
   "user.updated": "Updated user",
   "user.deactivated": "Deactivated user",
+  "user.deleted": "Deleted user",
   "user.role_changed": "Changed user role",
   "client.created": "Created client",
   "client.updated": "Updated client",
