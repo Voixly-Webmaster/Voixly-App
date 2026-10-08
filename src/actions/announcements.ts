@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAdminRole } from "@/lib/session-guard";
 import { logActivity } from "@/lib/activity";
-import { announcementEmailHtml } from "@/lib/email";
 import { broadcastToClients } from "@/lib/outreach";
+import { renderEmail, renderSms } from "@/lib/message-templates";
 import type { BroadcastResult } from "@/lib/delivery-summary";
 
 function revalidateAnnouncements() {
@@ -19,14 +19,12 @@ async function notifyAnnouncement(announcement: { id: string; title: string; bod
   const url = `${await getAppUrl()}/portal/announcements`;
   const excerpt = announcement.body.replace(/\s+/g, " ").trim();
   const short = excerpt.length > 140 ? `${excerpt.slice(0, 137)}…` : excerpt;
+  const vars = { title: announcement.title, body: announcement.body, excerpt: short, url };
+  const email = await renderEmail("announcement", vars);
   return broadcastToClients({
-    subject: announcement.title,
-    html: announcementEmailHtml({
-      title: announcement.title,
-      body: announcement.body,
-      url,
-    }),
-    sms: `Voixly: ${announcement.title}. ${short} ${url}`.slice(0, 480),
+    subject: email.subject,
+    html: email.html,
+    sms: await renderSms("announcement", vars),
   });
 }
 

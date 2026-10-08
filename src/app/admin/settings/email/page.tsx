@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { FormPanel } from "@/components/shared/form-panel";
 import { AlertBanner } from "@/components/shared/alert-banner";
 import { SettingsForm } from "@/components/settings/settings-form";
@@ -25,6 +26,13 @@ export default async function EmailSettingsPage() {
       description="Invoices, announcements, tickets, failed payments, password resets, and sign-in codes"
       icon={Mail}
     >
+      <p className="mb-4 text-sm text-muted-foreground">
+        Edit welcome notes, invoices, tickets, and sign-in emails in{" "}
+        <Link href="/admin/settings/messages" className="font-medium text-primary hover:underline">
+          Messages
+        </Link>
+        .
+      </p>
       {!apiKey.isSet && (
         <AlertBanner variant="info" className="mb-4">
           No API key set — emails are currently logged to the server console

@@ -147,25 +147,25 @@ export async function notifyInvoiceCreated(params: {
   dueDate: Date | null;
   recurring?: boolean;
 }): Promise<{ emailSent: boolean; smsSent: boolean | null }> {
-  const { invoiceEmailHtml } = await import("@/lib/email");
+  const { renderEmail, renderSms } = await import("@/lib/message-templates");
   const { formatCurrency, formatDate } = await import("@/lib/utils");
   const { getAppUrl } = await import("@/lib/app-url");
 
   const payUrl = `${await getAppUrl()}/portal/billing`;
   const amount = formatCurrency(params.amountCents);
+  const flowId = params.recurring ? "subscription" : "invoice";
+  const vars = {
+    invoiceNumber: params.invoiceNumber,
+    item: params.title,
+    amount,
+    dueDate: formatDate(params.dueDate),
+    payUrl,
+  };
+  const email = await renderEmail(flowId, vars);
   const delivery = await notifyClient(params.clientId, {
-    subject: `Invoice ${params.invoiceNumber} — ${params.title}`,
-    html: invoiceEmailHtml({
-      invoiceNumber: params.invoiceNumber,
-      title: params.title,
-      amount,
-      dueDate: formatDate(params.dueDate),
-      payUrl,
-      recurring: params.recurring,
-    }),
-    sms: params.recurring
-      ? `Voixly subscription ${params.title} for ${amount} is ready. Subscribe: ${payUrl}`
-      : `Voixly invoice ${params.invoiceNumber} for ${amount} is ready. Pay: ${payUrl}`,
+    subject: email.subject,
+    html: email.html,
+    sms: await renderSms(flowId, vars),
   });
 
   return {
@@ -181,20 +181,21 @@ export async function notifyPaymentFailed(params: {
   amountCents: number;
 }) {
   try {
-    const { paymentFailedEmailHtml } = await import("@/lib/email");
+    const { renderEmail, renderSms } = await import("@/lib/message-templates");
     const { formatCurrency } = await import("@/lib/utils");
     const { getAppUrl } = await import("@/lib/app-url");
     const payUrl = `${await getAppUrl()}/portal/billing`;
-    const amount = formatCurrency(params.amountCents);
+    const vars = {
+      invoiceNumber: params.invoiceNumber,
+      item: params.title,
+      amount: formatCurrency(params.amountCents),
+      payUrl,
+    };
+    const email = await renderEmail("payment-failed", vars);
     await notifyClient(params.clientId, {
-      subject: `Payment failed for invoice ${params.invoiceNumber}`,
-      html: paymentFailedEmailHtml({
-        invoiceNumber: params.invoiceNumber,
-        title: params.title,
-        amount,
-        payUrl,
-      }),
-      sms: `Voixly couldn't charge invoice ${params.invoiceNumber} (${amount}). Update your card: ${payUrl}`,
+      subject: email.subject,
+      html: email.html,
+      sms: await renderSms("payment-failed", vars),
     });
   } catch (err) {
     console.error("[notify] payment failure notice", err);

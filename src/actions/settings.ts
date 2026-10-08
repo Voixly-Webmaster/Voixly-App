@@ -45,11 +45,13 @@ export async function saveSettings(keys: SettingKey[], formData: FormData) {
 export async function sendTestEmail() {
   try {
     const admin = await requireAdminRole();
-    const { sendEmail, testEmailHtml } = await import("@/lib/email");
+    const { sendEmail } = await import("@/lib/email");
+    const { renderEmail } = await import("@/lib/message-templates");
+    const rendered = await renderEmail("test-email", {});
     const result = await sendEmail({
       to: admin.email,
-      subject: "Voixly test email",
-      html: testEmailHtml(),
+      subject: rendered.subject,
+      html: rendered.html,
     });
     if ("dev" in result && result.dev) {
       return {
@@ -89,9 +91,10 @@ export async function sendTestSms(phone: string) {
     }
 
     const { sendSms } = await import("@/lib/sms");
+    const { renderSms } = await import("@/lib/message-templates");
     const result = await sendSms({
       to,
-      message: "Voixly is connected to VoidFix. This is a test text.",
+      message: await renderSms("test-sms", {}),
     });
     if ("dev" in result && result.dev) {
       return {

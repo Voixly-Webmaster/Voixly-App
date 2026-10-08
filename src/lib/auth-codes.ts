@@ -5,7 +5,8 @@ import {
 } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
-import { passwordResetEmailHtml, sendEmail, signInCodeEmailHtml } from "@/lib/email";
+import { sendEmail } from "@/lib/email";
+import { renderEmail, renderSms } from "@/lib/message-templates";
 import { sendSms } from "@/lib/sms";
 import { maskEmail, maskPhone } from "@/lib/phone";
 import { getAppUrl } from "@/lib/app-url";
@@ -65,42 +66,12 @@ export function maskDestination(channel: TwoFactorChannel, destination: string):
     : maskPhone(destination);
 }
 
-function codeCopy(purpose: AuthChallengePurpose, channel: TwoFactorChannel): {
-  subject: string;
-  reason: string;
-  sms: string;
-} {
-  if (purpose === AuthChallengePurpose.LOGIN) {
-    return {
-      subject: "Your Voixly sign-in code",
-      reason: "Sign-in code",
-      sms: "Voixly sign-in code",
-    };
-  }
+function codeFlowId(purpose: AuthChallengePurpose, channel: TwoFactorChannel): string {
+  if (purpose === AuthChallengePurpose.LOGIN) return "signin";
   if (purpose === AuthChallengePurpose.ENABLE) {
-    return channel === TwoFactorChannel.EMAIL
-      ? {
-          subject: "Confirm email sign-in codes",
-          reason: "Confirm email sign-in codes",
-          sms: "Voixly code",
-        }
-      : {
-          subject: "Confirm text sign-in codes",
-          reason: "Confirm text sign-in codes",
-          sms: "Voixly code to turn on text sign-in",
-        };
+    return channel === TwoFactorChannel.EMAIL ? "signin-enable-email" : "signin-enable-sms";
   }
-  return channel === TwoFactorChannel.EMAIL
-    ? {
-        subject: "Turn off email sign-in codes",
-        reason: "Turn off email sign-in codes",
-        sms: "Voixly code",
-      }
-    : {
-        subject: "Turn off text sign-in codes",
-        reason: "Turn off text sign-in codes",
-        sms: "Voixly code to turn off text sign-in",
-      };
+  return channel === TwoFactorChannel.EMAIL ? "signin-disable-email" : "signin-disable-sms";
 }
 
 async function deliver(params: {
@@ -109,39 +80,48 @@ async function deliver(params: {
   code: string;
   purpose: AuthChallengePurpose;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const copy = codeCopy(params.purpose, params.channel);
-  const minutes = CODE_TTL_MS / 60_000;
+  const minutes = String(CODE_TTL_MS / 60_000);
+  const vars = { code: params.code, minutes };
+  const flowId = codeFlowId(params.purpose, params.channel);
 
   if (process.env.NODE_ENV !== "production") {
     console.info(`[auth-code] ${params.channel} ${params.destination} ${params.code}`);
   }
 
-  if (params.channel === TwoFactorChannel.EMAIL) {
-    const result = await sendEmail({
+  try {
+    if (params.channel === TwoFactorChannel.EMAIL) {
+      const rendered = await renderEmail(flowId, vars);
+      const result = await sendEmail({
+        to: params.destination,
+        subject: rendered.subject,
+        html: rendered.html,
+      });
+      if ("dev" in result && result.dev && process.env.NODE_ENV === "production") {
+        return { ok: false, error: "Email is not configured" };
+      }
+      if (!result.ok) return { ok: false, error: "Could not send the email" };
+      return { ok: true };
+    }
+
+    const result = await sendSms({
       to: params.destination,
-      subject: copy.subject,
-      html: signInCodeEmailHtml({
-        code: params.code,
-        minutes,
-        reason: copy.reason,
-      }),
+      message: await renderSms(flowId, vars),
     });
     if ("dev" in result && result.dev && process.env.NODE_ENV === "production") {
-      return { ok: false, error: "Email is not configured" };
+      return { ok: false, error: "Text messaging is not configured" };
     }
-    if (!result.ok) return { ok: false, error: "Could not send the email" };
+    if (!result.ok) return { ok: false, error: "Could not send the text message" };
     return { ok: true };
+  } catch (err) {
+    console.error("[auth-code] delivery failed", err);
+    return {
+      ok: false,
+      error:
+        params.channel === TwoFactorChannel.EMAIL
+          ? "Could not send the email"
+          : "Could not send the text message",
+    };
   }
-
-  const result = await sendSms({
-    to: params.destination,
-    message: `${copy.sms}: ${params.code}. It expires in ${minutes} minutes.`,
-  });
-  if ("dev" in result && result.dev && process.env.NODE_ENV === "production") {
-    return { ok: false, error: "Text messaging is not configured" };
-  }
-  if (!result.ok) return { ok: false, error: "Could not send the text message" };
-  return { ok: true };
 }
 
 export async function issueChallenge(params: {
@@ -358,10 +338,11 @@ export async function requestPasswordReset(user: User): Promise<void> {
   if (process.env.NODE_ENV !== "production") {
     console.info("[password-reset]", user.email, resetUrl);
   }
+  const rendered = await renderEmail("password-reset", { resetUrl });
   const result = await sendEmail({
     to: user.email,
-    subject: "Reset your Voixly password",
-    html: passwordResetEmailHtml({ resetUrl }),
+    subject: rendered.subject,
+    html: rendered.html,
   });
   if (!result.ok && process.env.NODE_ENV === "production") {
     console.error("[password-reset] email failed", user.email);

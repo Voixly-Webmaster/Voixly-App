@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { FormPanel } from "@/components/shared/form-panel";
 import { AlertBanner } from "@/components/shared/alert-banner";
 import { SettingsForm } from "@/components/settings/settings-form";
@@ -32,6 +33,13 @@ export default async function SmsSettingsPage() {
       description="Sign-in codes, announcements, invoices, ticket replies, and failed payments"
       icon={Smartphone}
     >
+      <p className="mb-4 text-sm text-muted-foreground">
+        Edit invoice, ticket, announcement, and sign-in texts in{" "}
+        <Link href="/admin/settings/messages" className="font-medium text-primary hover:underline">
+          Messages
+        </Link>
+        .
+      </p>
       {!apiKey.isSet && (
         <AlertBanner variant="info" className="mb-4">
           No API key set — in local development, texts are printed in the server

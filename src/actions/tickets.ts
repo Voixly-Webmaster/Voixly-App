@@ -5,7 +5,8 @@ import { prisma } from "@/lib/db";
 import { requireAuth, requireAdmin } from "@/lib/session-guard";
 import { assertClientAccess } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity";
-import { sendEmail, ticketReplyEmailHtml } from "@/lib/email";
+import { sendEmail } from "@/lib/email";
+import { renderEmail, renderSms } from "@/lib/message-templates";
 import { notifyClient, textClient } from "@/lib/outreach";
 import { TicketStatus, UserRole } from "@prisma/client";
 
@@ -75,29 +76,29 @@ export async function createTicket(formData: FormData) {
   const isStaff = user.role !== UserRole.CLIENT;
   try {
     if (isStaff) {
-      const ticketUrl = `${appUrl}/portal/support/${ticket.id}`;
+      const vars = {
+        subject: subject.trim(),
+        preview: body.trim().slice(0, 200),
+        url: `${appUrl}/portal/support/${ticket.id}`,
+      };
+      const email = await renderEmail("ticket-opened", vars);
       await notifyClient(clientId, {
-        subject: `New ticket: ${subject.trim()}`,
-        html: ticketReplyEmailHtml({
-          ticketSubject: subject.trim(),
-          messagePreview: body.trim().slice(0, 200),
-          ticketUrl,
-          isStaffReply: true,
-        }),
-        sms: `Voixly opened a ticket: ${subject.trim()}. ${ticketUrl}`,
+        subject: email.subject,
+        html: email.html,
+        sms: await renderSms("ticket-opened", vars),
       });
     } else {
       const emails = await staffEmailsForClient(clientId);
       if (emails.length > 0) {
+        const email = await renderEmail("ticket-opened-staff", {
+          subject: subject.trim(),
+          preview: body.trim().slice(0, 200),
+          url: `${appUrl}/admin/tickets/${ticket.id}`,
+        });
         await sendEmail({
           to: emails,
-          subject: `New ticket: ${subject.trim()}`,
-          html: ticketReplyEmailHtml({
-            ticketSubject: subject.trim(),
-            messagePreview: body.trim().slice(0, 200),
-            ticketUrl: `${appUrl}/admin/tickets/${ticket.id}`,
-            isStaffReply: false,
-          }),
+          subject: email.subject,
+          html: email.html,
         });
       }
     }
@@ -167,15 +168,15 @@ export async function replyToTicket(ticketId: string, formData: FormData) {
 
   if (notifyEmail.length > 0) {
     try {
+      const email = await renderEmail(isStaff ? "ticket-reply" : "ticket-reply-staff", {
+        subject: ticket.subject,
+        preview: body.slice(0, 200),
+        url: ticketUrl,
+      });
       await sendEmail({
         to: notifyEmail,
-        subject: `Ticket update: ${ticket.subject}`,
-        html: ticketReplyEmailHtml({
-          ticketSubject: ticket.subject,
-          messagePreview: body.slice(0, 200),
-          ticketUrl,
-          isStaffReply: isStaff,
-        }),
+        subject: email.subject,
+        html: email.html,
       });
     } catch (err) {
       console.error("[ticket] notify failed", err);
@@ -183,10 +184,18 @@ export async function replyToTicket(ticketId: string, formData: FormData) {
   }
 
   if (isStaff) {
-    await textClient(
-      ticket.clientId,
-      `Voixly replied to "${ticket.subject}". ${ticketUrl}`
-    );
+    try {
+      await textClient(
+        ticket.clientId,
+        await renderSms("ticket-reply", {
+          subject: ticket.subject,
+          preview: body.slice(0, 200),
+          url: ticketUrl,
+        })
+      );
+    } catch (err) {
+      console.error("[ticket] text notify failed", err);
+    }
   }
 
   revalidatePath(`/portal/support/${ticketId}`);

@@ -5,6 +5,8 @@ const ACTION_LABELS: Record<string, string> = {
   "user.two_factor_enabled": "Turned on sign-in codes",
   "user.two_factor_disabled": "Turned off sign-in codes",
   "settings.test_sms": "Sent a test text",
+  "message.template_updated": "Updated a message template",
+  "message.template_reset": "Restored a message template",
   "user.updated": "Updated user",
   "user.deactivated": "Deactivated user",
   "user.role_changed": "Changed user role",

@@ -5,7 +5,7 @@ import { SettingsSubnav } from "@/components/settings/settings-subnav";
 
 export const metadata: Metadata = {
   title: "Settings",
-  description: "Manage users, products, payments, email, and integrations.",
+  description: "Manage users, products, payments, email, texts, and message wording.",
 };
 
 export default async function SettingsLayout({
@@ -19,7 +19,7 @@ export default async function SettingsLayout({
     <div>
       <PageHeader
         title="Settings"
-        description="Manage users, products, payment providers, email, and integrations"
+        description="Manage users, products, payment providers, email, texts, and message wording"
         className="mb-6"
       />
       <SettingsSubnav />
