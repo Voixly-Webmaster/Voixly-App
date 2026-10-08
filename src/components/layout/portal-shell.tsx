@@ -44,8 +44,8 @@ export function PortalShell({
     <CommandPaletteProvider>
       <AppShell
         navItems={navItems}
-        title="ClientHub"
-        subtitle="Client Portal"
+        title="Voixly"
+        subtitle="ClientHub"
         userName={userName}
         userRole="CLIENT"
         searchPlaceholder="Search invoices, tickets, projects..."

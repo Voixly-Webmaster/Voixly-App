@@ -7,7 +7,10 @@ import { SettingField } from "@/components/settings/setting-field";
 import { TestSmsButton } from "@/components/settings/test-sms-button";
 import { saveSettings } from "@/actions/settings";
 import { getSettingsStatus, type SettingKey } from "@/lib/settings";
+import { getAppUrl } from "@/lib/app-url";
 import { listVoidfixDevices } from "@/lib/sms";
+import { currentVoidfixWebhook } from "@/lib/sms-inbox";
+import { SmsInboxButton } from "@/components/settings/sms-inbox-button";
 import { Smartphone } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -26,6 +29,9 @@ function simSummary(slot: number, label: string, number: string | null): string 
 export default async function SmsSettingsPage() {
   const [apiKey, deviceId] = await getSettingsStatus(KEYS);
   const phones = apiKey.isSet ? await listVoidfixDevices() : null;
+  const appUrl = await getAppUrl();
+  const inboxUrl = `${appUrl.replace(/\/$/, "")}/api/webhooks/voidfix`;
+  const currentWebhook = apiKey.isSet ? await currentVoidfixWebhook() : null;
 
   return (
     <FormPanel
@@ -100,11 +106,29 @@ export default async function SmsSettingsPage() {
           hint="Optional. The phone ID from VoidFix → Devices, such as 1383. Add |1 to use SIM 2, for example 1383|1."
         />
       </SettingsForm>
-      {apiKey.isSet && (
-        <div className="mt-6 border-t border-border/60 pt-5">
-          <TestSmsButton />
+      <div className="mt-6 space-y-3 border-t border-border/60 pt-5">
+        <div className="space-y-1 text-sm text-muted-foreground">
+          <p className="font-medium text-foreground">Text inbox</p>
+          <p>
+            Customer replies show up in Texts, matched to the phone number on
+            their account. VoidFix should send them to{" "}
+            <span className="break-all font-medium text-foreground">{inboxUrl}</span>.
+          </p>
+          {apiKey.isSet && currentWebhook === inboxUrl ? (
+            <p>This inbox is receiving texts.</p>
+          ) : apiKey.isSet && currentWebhook ? (
+            <p>VoidFix is currently sending texts to a different address.</p>
+          ) : (
+            <p>Turn this on so replies land in the inbox.</p>
+          )}
         </div>
-      )}
+        {apiKey.isSet ? (
+          <>
+            <SmsInboxButton />
+            <TestSmsButton />
+          </>
+        ) : null}
+      </div>
     </FormPanel>
   );
 }

@@ -20,7 +20,16 @@ export type ListedDevice = {
 };
 
 type SendFailure = { ok: false; error: string };
-type SendSuccess = { ok: true; dev?: true };
+type SendSuccess = { ok: true; dev?: true; id?: string };
+
+function firstMessageId(payload: unknown): string | undefined {
+  const messages = (payload as { data?: { messages?: unknown } } | null)?.data?.messages;
+  if (!Array.isArray(messages) || messages.length === 0) return undefined;
+  const id = (messages[0] as { ID?: unknown }).ID;
+  if (typeof id === "number" && Number.isFinite(id)) return String(Math.trunc(id));
+  if (typeof id === "string" && /^\d+$/.test(id)) return id;
+  return undefined;
+}
 
 function voidfixErrorMessage(payload: unknown, status: number, parsed: boolean): string {
   if (!parsed) return `VoidFix returned an unexpected response (HTTP ${status}).`;
@@ -194,7 +203,7 @@ async function postSms(body: URLSearchParams): Promise<SendSuccess | SendFailure
     return { ok: false, error: message };
   }
 
-  return { ok: true };
+  return { ok: true, id: firstMessageId(payload) };
 }
 
 function sendBody(params: {

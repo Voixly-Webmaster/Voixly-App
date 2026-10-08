@@ -17,6 +17,7 @@ import {
   Users,
   CreditCard,
   MessageSquare,
+  Smartphone,
   CheckSquare,
   LayoutDashboard,
   Activity,
@@ -133,6 +134,15 @@ export default async function AdminDashboardPage() {
     }),
   ]);
 
+  const unreadTexts = await prisma.smsConversation.count({
+    where: {
+      unreadCount: { gt: 0 },
+      ...(scope === "all"
+        ? {}
+        : { clientId: { in: scope.length ? scope : ["__none__"] } }),
+    },
+  });
+
   return (
     <div className="space-y-8">
       {user.role === UserRole.STAFF && scope !== "all" && scope.length === 0 && (
@@ -179,6 +189,13 @@ export default async function AdminDashboardPage() {
           value={openTickets}
           href="/admin/tickets?status=OPEN"
           icon={MessageSquare}
+        />
+        <StatCard
+          label="New texts"
+          value={unreadTexts}
+          href="/admin/texts"
+          icon={Smartphone}
+          accent="secondary"
         />
         <StatCard
           label="Active tasks"

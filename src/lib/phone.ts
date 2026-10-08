@@ -13,6 +13,27 @@ export function normalizePhone(input: string): string | null {
   return null;
 }
 
+export function phonesMatch(
+  a: string | null | undefined,
+  b: string | null | undefined
+): boolean {
+  if (!a || !b) return false;
+  const left = normalizePhone(a);
+  const right = normalizePhone(b);
+  if (left && right) return left === right;
+  const leftDigits = a.replace(/\D/g, "");
+  const rightDigits = b.replace(/\D/g, "");
+  return leftDigits.length >= 10 && leftDigits.slice(-10) === rightDigits.slice(-10);
+}
+
+export function formatPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return phone;
+}
+
 export function maskPhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   const last4 = digits.slice(-4);

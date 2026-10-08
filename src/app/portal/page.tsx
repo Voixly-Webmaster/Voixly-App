@@ -10,19 +10,24 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { TaskStatusBadge } from "@/components/shared/status-badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { InvoiceStatus, TicketStatus } from "@prisma/client";
-import { CreditCard, MessageSquare, FolderKanban, Megaphone } from "lucide-react";
+import { InvoiceStatus, RecurringStatus, TicketStatus } from "@prisma/client";
+import { intervalLabel } from "@/lib/billing";
+import { CreditCard, MessageSquare, FolderKanban, Megaphone, Sparkles } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Dashboard",
   description: "Your invoices, projects, files, and messages from Voixly.",
 };
 
+function withPeriod(text: string) {
+  return /[.!?]$/.test(text) ? text : `${text}.`;
+}
+
 export default async function PortalDashboardPage() {
   const user = await requireClient();
   const clientId = user.clientId!;
 
-  const [client, unpaidInvoices, openTickets, visibleTasks, announcements] =
+  const [client, unpaidInvoices, openTickets, visibleTasks, announcements, service] =
     await Promise.all([
       prisma.client.findUnique({ where: { id: clientId } }),
       prisma.invoice.findMany({
@@ -51,6 +56,11 @@ export default async function PortalDashboardPage() {
         orderBy: { publishAt: "desc" },
         take: 2,
       }),
+      prisma.recurringInvoice.findFirst({
+        where: { clientId, status: { not: RecurringStatus.CANCELLED } },
+        include: { product: true },
+        orderBy: { createdAt: "desc" },
+      }),
     ]);
 
   const unpaidTotal = unpaidInvoices.reduce((s, i) => s + i.amountCents, 0);
@@ -65,6 +75,48 @@ export default async function PortalDashboardPage() {
             : "Your client workspace"
         }
       />
+
+      {service && client && (
+        <Panel
+          title="Welcome to Voixly"
+          icon={Sparkles}
+          accent="primary"
+          action={
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/portal/billing">View billing</Link>
+            </Button>
+          }
+        >
+          <div className="space-y-3 text-sm leading-relaxed">
+            <p>
+              <span className="font-medium text-foreground">
+                {service.product?.name ?? service.title}
+              </span>{" "}
+              is set up for {client.companyName}.{" "}
+              {withPeriod(
+                service.product?.description?.trim() ||
+                  service.description?.trim() ||
+                  "This is the service your Voixly team is providing.",
+              )}{" "}
+              It is billed {intervalLabel(service.interval)}
+              {service.amountCents ? ` at ${formatCurrency(service.amountCents)}` : ""}.
+            </p>
+            {unpaidInvoices[0] ? (
+              <p className="text-muted-foreground">
+                Your invoice for {formatCurrency(unpaidInvoices[0].amountCents)} is ready
+                {unpaidInvoices[0].dueDate
+                  ? ` and due ${formatDate(unpaidInvoices[0].dueDate)}`
+                  : ""}
+                .
+              </p>
+            ) : (
+              <p className="text-muted-foreground">
+                You&apos;re caught up on billing for this service.
+              </p>
+            )}
+          </div>
+        </Panel>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard

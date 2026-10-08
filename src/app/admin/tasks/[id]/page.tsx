@@ -44,6 +44,7 @@ export default async function AdminTaskPage({
         orderBy: { createdAt: "asc" },
         include: { author: { select: { name: true } } },
       },
+      smsMessage: { select: { conversationId: true } },
     },
   });
 
@@ -58,9 +59,16 @@ export default async function AdminTaskPage({
         title={task.title}
         description={task.client?.companyName ?? "Internal task"}
         action={
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/admin/tasks">← Tasks</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {task.smsMessage && (
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/admin/texts/${task.smsMessage.conversationId}`}>View text</Link>
+              </Button>
+            )}
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/admin/tasks">← Tasks</Link>
+            </Button>
+          </div>
         }
       />
 

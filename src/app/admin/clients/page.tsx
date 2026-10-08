@@ -19,11 +19,12 @@ import {
   parsePageParam,
 } from "@/components/shared/pagination";
 import { Button } from "@/components/ui/button";
-import { CreateClientForm } from "@/components/clients/create-client-form";
+import { InviteClientForm } from "@/components/clients/invite-client-form";
 import { ClientTier, UserRole } from "@prisma/client";
-import { formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { intervalLabel } from "@/lib/billing";
 import { EmptyState } from "@/components/shared/empty-state";
-import { UserPlus, Users } from "lucide-react";
+import { MailPlus, Users } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Clients",
@@ -59,15 +60,22 @@ export default async function AdminClientsPage({
       : {}),
   };
 
-  const [total, clients] = await Promise.all([
+  const [total, clients, products] = await Promise.all([
     prisma.client.count({ where }),
     prisma.client.findMany({
       where,
-      include: { user: true },
+      include: { user: { select: { email: true, name: true, passwordHash: true } } },
       orderBy: { companyName: "asc" },
       skip: (page - 1) * DEFAULT_PAGE_SIZE,
       take: DEFAULT_PAGE_SIZE,
     }),
+    user.role === UserRole.ADMIN
+      ? prisma.product.findMany({
+          where: { active: true, deletedAt: null },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, amountCents: true, interval: true },
+        })
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -103,11 +111,16 @@ export default async function AdminClientsPage({
 
       {user.role === UserRole.ADMIN && (
         <FormPanel
-          title="Add client"
-          description="Creates a portal login and sends a welcome email"
-          icon={UserPlus}
+          title="Invite a customer"
+          description="Email, name, and company. Their tier and product set the first invoice, then they choose a password and mobile number."
+          icon={MailPlus}
         >
-          <CreateClientForm />
+          <InviteClientForm
+            products={products.map((product) => ({
+              id: product.id,
+              label: `${product.name} — ${formatCurrency(product.amountCents)} / ${intervalLabel(product.interval)}`,
+            }))}
+          />
         </FormPanel>
       )}
 
@@ -119,7 +132,14 @@ export default async function AdminClientsPage({
               <ClientTierBadge tier={c.tier} />
             </DataTableCell>
             <DataTableCell>{c.contactName ?? "—"}</DataTableCell>
-            <DataTableCell>{c.user.email}</DataTableCell>
+            <DataTableCell>
+              <div className="min-w-0">
+                <p className="truncate">{c.user.email}</p>
+                {!c.user.passwordHash && (
+                  <p className="text-xs font-medium text-primary">Invite sent</p>
+                )}
+              </div>
+            </DataTableCell>
             <DataTableCell>{formatDate(c.createdAt)}</DataTableCell>
             <DataTableCell className="text-right">
               <Button variant="outline" size="sm" asChild>

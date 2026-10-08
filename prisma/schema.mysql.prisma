@@ -70,6 +70,11 @@ enum ClientTier {
   BRONZE
 }
 
+enum SmsDirection {
+  INBOUND
+  OUTBOUND
+}
+
 enum TwoFactorChannel {
   EMAIL
   SMS
@@ -93,6 +98,8 @@ model User {
   twoFactorPhone    String?
   twoFactorEmail    Boolean   @default(false)
   twoFactorSms      Boolean   @default(false)
+  /** When the customer agreed to receive text messages. */
+  smsConsentAt      DateTime?
   passwordChangedAt DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -113,6 +120,7 @@ model User {
   authChallenges  AuthChallenge[]
   loginTickets    LoginTicket[]
   passwordResets  PasswordResetToken[]
+  accountInvites  AccountInvite[]
 
   @@index([role])
   @@index([deletedAt])
@@ -190,6 +198,7 @@ model Client {
   announcements   AnnouncementClient[]
   activityLogs    ActivityLog[]
   googleIntegration ClientGoogleIntegration?
+  smsConversations SmsConversation[]
 
   @@index([companyName])
   @@index([tier])
@@ -342,6 +351,7 @@ model Task {
   assignee  User?         @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   createdBy User          @relation("TaskCreator", fields: [createdById], references: [id])
   comments  TaskComment[]
+  smsMessage SmsMessage?
 
   @@index([clientId])
   @@index([status])
@@ -367,6 +377,42 @@ model TaskComment {
 
   @@index([taskId])
   @@map("task_comments")
+}
+
+model SmsConversation {
+  id            String   @id @default(cuid())
+  phone         String   @unique
+  clientId      String?
+  lastMessageAt DateTime
+  lastPreview   String
+  unreadCount   Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  client   Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  messages SmsMessage[]
+
+  @@index([clientId])
+  @@index([lastMessageAt])
+  @@map("sms_conversations")
+}
+
+model SmsMessage {
+  id             String       @id @default(cuid())
+  conversationId String
+  voidfixId      String?      @unique
+  direction      SmsDirection
+  body           String       @db.Text
+  status         String?
+  sentAt         DateTime
+  taskId         String?      @unique
+  createdAt      DateTime     @default(now())
+
+  conversation SmsConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  task         Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, sentAt])
+  @@map("sms_messages")
 }
 
 model SupportTicket {
@@ -583,4 +629,18 @@ model PasswordResetToken {
 
   @@index([userId, createdAt])
   @@map("password_reset_tokens")
+}
+
+model AccountInvite {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("account_invites")
 }

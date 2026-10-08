@@ -64,6 +64,11 @@ export default async function LoginPage({
             Password updated. Sign in with your new password.
           </p>
         ) : null}
+        {params.notice === "account-ready" ? (
+          <p className="mb-4 rounded-lg border border-success/30 bg-success-muted px-3 py-2 text-sm text-success-foreground">
+            Your account is ready. Sign in with the email from your invite.
+          </p>
+        ) : null}
         {params.error === "credentials" && (
           <p className="mb-4 rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             Invalid email or password.

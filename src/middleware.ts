@@ -38,7 +38,8 @@ export default auth((req) => {
     pathname !== "/login" &&
     pathname !== "/" &&
     pathname !== "/forgot-password" &&
-    pathname !== "/reset-password"
+    pathname !== "/reset-password" &&
+    pathname !== "/invite"
   ) {
     const login = new URL("/login", req.nextUrl.origin);
     login.searchParams.set("callbackUrl", pathname);

@@ -16,6 +16,7 @@ export const authConfig = {
         pathname === "/login" ||
         pathname === "/forgot-password" ||
         pathname === "/reset-password" ||
+        pathname === "/invite" ||
         pathname.startsWith("/api/auth") ||
         pathname.startsWith("/api/webhooks");
       if (isPublic) return true;

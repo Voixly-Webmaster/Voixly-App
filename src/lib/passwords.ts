@@ -48,6 +48,10 @@ export function resetHash(raw: string): string {
   return hmac("reset", raw);
 }
 
+export function inviteHash(raw: string): string {
+  return hmac("invite", raw);
+}
+
 export function newSignInCode(): string {
   return randomInt(0, 1_000_000).toString().padStart(6, "0");
 }

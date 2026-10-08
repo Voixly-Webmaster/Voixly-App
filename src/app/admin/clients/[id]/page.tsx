@@ -21,6 +21,7 @@ import { UserRole } from "@prisma/client";
 import { selectClassName } from "@/lib/ui";
 import { Building2, StickyNote, Receipt, Users } from "lucide-react";
 import { PendingSubmit } from "@/components/shared/pending-submit";
+import { ResendInviteButton } from "@/components/clients/resend-invite-button";
 
 export default async function AdminClientDetailPage({
   params,
@@ -77,7 +78,13 @@ export default async function AdminClientDetailPage({
           </span>
         }
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {!client.user.passwordHash && user.role === UserRole.ADMIN && (
+              <ResendInviteButton clientId={client.id} />
+            )}
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/admin/texts?client=${client.id}`}>Texts</Link>
+            </Button>
             <Button variant="outline" size="sm" asChild>
               <Link href={`/admin/clients/${client.id}/insights`}>Insights</Link>
             </Button>
