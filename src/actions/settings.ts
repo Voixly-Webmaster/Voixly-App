@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdminRole } from "@/lib/session-guard";
 import { setSetting, SETTING_DEFS, type SettingKey } from "@/lib/settings";
 import { logActivity } from "@/lib/activity";
+import { normalizePhone } from "@/lib/phone";
 
 /**
  * Saves the setting fields present in the form.
@@ -58,6 +59,30 @@ export async function sendTestEmail() {
   await logActivity({
     actorId: admin.id,
     action: "settings.test_email",
+    entityType: "settings",
+  });
+}
+
+export async function sendTestSms(phone: string) {
+  const admin = await requireAdminRole();
+  const to = normalizePhone(phone);
+  if (!to) {
+    throw new Error("Enter a mobile number with country code, like +1 555 123 4567");
+  }
+
+  const { sendSms } = await import("@/lib/sms");
+  const result = await sendSms({
+    to,
+    message: "Voixly is connected to VoidFix. This is a test text.",
+  });
+  if ("dev" in result && result.dev) {
+    throw new Error("VoidFix API key is not set — add it above or in VOIDFIX_API_KEY.");
+  }
+  if (!result.ok) throw new Error(result.error);
+
+  await logActivity({
+    actorId: admin.id,
+    action: "settings.test_sms",
     entityType: "settings",
   });
 }

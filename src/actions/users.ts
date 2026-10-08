@@ -6,6 +6,7 @@ import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireAdminRole } from "@/lib/session-guard";
 import { logActivity } from "@/lib/activity";
+import { revokeSignInMaterial } from "@/lib/auth-codes";
 
 const USERS_PATH = "/admin/settings/users";
 
@@ -126,7 +127,11 @@ export async function resetUserPassword(userId: string, formData: FormData) {
   if (!user) throw new Error("User not found");
 
   const passwordHash = await bcrypt.hash(password, 12);
-  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash, passwordChangedAt: new Date() },
+  });
+  await revokeSignInMaterial(userId);
 
   await logActivity({
     actorId: admin.id,

@@ -33,7 +33,13 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/admin", req.nextUrl.origin));
   }
 
-  if (!isLoggedIn && pathname !== "/login" && pathname !== "/") {
+  if (
+    !isLoggedIn &&
+    pathname !== "/login" &&
+    pathname !== "/" &&
+    pathname !== "/forgot-password" &&
+    pathname !== "/reset-password"
+  ) {
     const login = new URL("/login", req.nextUrl.origin);
     login.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(login);

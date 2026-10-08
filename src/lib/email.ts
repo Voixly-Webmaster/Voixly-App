@@ -80,6 +80,34 @@ export function invoiceEmailHtml(params: {
   `;
 }
 
+export function signInCodeEmailHtml(params: {
+  code: string;
+  minutes: number;
+  reason: string;
+}) {
+  return `
+    <div style="font-family: Inter, system-ui, sans-serif; max-width: 560px; margin: 0 auto;">
+      <p style="color: #64748b; font-size: 14px;">ClientHub · Voixly</p>
+      <h2 style="color: #0f172a;">${escapeHtml(params.reason)}</h2>
+      <p style="color: #334155;">Your code is</p>
+      <p style="font-size: 32px; letter-spacing: 0.3em; font-weight: 700; color: #0f172a;">${escapeHtml(params.code)}</p>
+      <p style="color: #64748b;">It expires in ${params.minutes} minutes. If you did not request this, you can ignore this email.</p>
+    </div>
+  `;
+}
+
+export function passwordResetEmailHtml(params: { resetUrl: string }) {
+  return `
+    <div style="font-family: Inter, system-ui, sans-serif; max-width: 560px; margin: 0 auto;">
+      <p style="color: #64748b; font-size: 14px;">ClientHub · Voixly</p>
+      <h2 style="color: #0f172a;">Reset your password</h2>
+      <p style="color: #334155;">This link expires in 1 hour and can only be used once.</p>
+      <a href="${escapeHtml(params.resetUrl)}" style="display: inline-block; margin-top: 16px; background: #FF6B4A; color: white; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">Choose a new password</a>
+      <p style="color: #64748b; font-size: 13px; margin-top: 24px;">If you did not ask for a reset, you can ignore this email. Your password will stay the same.</p>
+    </div>
+  `;
+}
+
 export async function sendInvoiceCreatedEmail(params: {
   clientId: string;
   invoiceNumber: string;

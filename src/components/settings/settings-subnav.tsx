@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Settings, Users, CreditCard, Mail, Plug, Package } from "lucide-react";
+import { Settings, Users, CreditCard, Mail, Plug, Package, Smartphone } from "lucide-react";
 
 const tabs = [
   { href: "/admin/settings", label: "General", icon: Settings, exact: true },
@@ -11,6 +11,7 @@ const tabs = [
   { href: "/admin/settings/payments", label: "Payments", icon: CreditCard, exact: false },
   { href: "/admin/settings/products", label: "Products", icon: Package, exact: false },
   { href: "/admin/settings/email", label: "Email", icon: Mail, exact: false },
+  { href: "/admin/settings/sms", label: "SMS", icon: Smartphone, exact: false },
   { href: "/admin/settings/integrations", label: "Integrations", icon: Plug, exact: false },
 ];
 

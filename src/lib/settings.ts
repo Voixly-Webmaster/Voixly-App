@@ -19,6 +19,8 @@ export const SETTING_DEFS = {
   "stripe.webhookSecret": { env: "STRIPE_WEBHOOK_SECRET", secret: true, label: "Stripe webhook secret" },
   "resend.apiKey": { env: "RESEND_API_KEY", secret: true, label: "Resend API key" },
   "resend.fromEmail": { env: "RESEND_FROM_EMAIL", secret: false, label: "From email" },
+  "voidfix.apiKey": { env: "VOIDFIX_API_KEY", secret: true, label: "VoidFix API key" },
+  "voidfix.deviceId": { env: "VOIDFIX_DEVICE_ID", secret: false, label: "VoidFix device ID" },
   "google.clientId": { env: "GOOGLE_CLIENT_ID", secret: false, label: "Google client ID" },
   "google.clientSecret": { env: "GOOGLE_CLIENT_SECRET", secret: true, label: "Google client secret" },
 } as const;

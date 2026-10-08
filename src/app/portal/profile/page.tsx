@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/shared/page-header";
 
 import { FormPanel } from "@/components/shared/form-panel";
 import { OwnProfileForm } from "@/components/clients/own-profile-form";
+import { AccountSecurity } from "@/components/auth/account-security";
 import { User } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -38,6 +39,7 @@ export default async function PortalProfilePage() {
           address={client.address ?? ""}
         />
       </FormPanel>
+      <AccountSecurity />
     </div>
   );
 }

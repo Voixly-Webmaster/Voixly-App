@@ -10,6 +10,7 @@ import {
   Megaphone,
   Activity,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CommandPaletteProvider } from "@/components/shared/command-palette";
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/admin/files", label: "Files", icon: Upload },
   { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
   { href: "/admin/activity", label: "Activity", icon: Activity },
+  { href: "/admin/security", label: "Security", icon: ShieldCheck },
 ];
 
 export function AdminShell({

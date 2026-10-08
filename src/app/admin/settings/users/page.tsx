@@ -55,6 +55,9 @@ export default async function UsersSettingsPage() {
                 <div className="min-w-0">
                   <p className="font-medium text-foreground">{u.name ?? "—"}</p>
                   <p className="truncate text-xs text-muted-foreground">{u.email}</p>
+                  {(u.twoFactorEmail || u.twoFactorSms) && (
+                    <p className="text-xs text-primary">Sign-in code on</p>
+                  )}
                 </div>
               </DataTableCell>
               <DataTableCell>
@@ -92,6 +95,7 @@ export default async function UsersSettingsPage() {
                   role={u.role}
                   active={active}
                   isSelf={u.id === admin.id}
+                  twoFactor={u.twoFactorEmail || u.twoFactorSms}
                 />
               </DataTableCell>
             </DataTableRow>

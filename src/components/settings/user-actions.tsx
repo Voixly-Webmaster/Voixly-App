@@ -19,7 +19,8 @@ import {
   resetUserPassword,
   setUserActive,
 } from "@/actions/users";
-import { KeyRound, Loader2, ShieldCheck, UserX, UserCheck } from "lucide-react";
+import { clearUserTwoFactor } from "@/actions/account-access";
+import { KeyRound, Loader2, ShieldCheck, ShieldOff, UserX, UserCheck } from "lucide-react";
 
 export function UserActions({
   userId,
@@ -28,6 +29,7 @@ export function UserActions({
   role,
   active,
   isSelf,
+  twoFactor,
 }: {
   userId: string;
   userName: string;
@@ -35,6 +37,7 @@ export function UserActions({
   role: "ADMIN" | "STAFF" | "CLIENT";
   active: boolean;
   isSelf: boolean;
+  twoFactor: boolean;
 }) {
   const { success, error } = useToast();
   const confirm = useConfirm();
@@ -88,6 +91,27 @@ export function UserActions({
         <KeyRound className="h-3.5 w-3.5" aria-hidden />
         Password
       </Button>
+
+      {twoFactor && (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={pending || !active}
+          title="Turn off sign-in codes"
+          onClick={async () => {
+            const ok = await confirm({
+              title: `Turn off sign-in codes for ${userName}?`,
+              description: `${email} will be able to sign in with just a password until they turn codes back on.`,
+              confirmLabel: "Turn off",
+              tone: "destructive",
+            });
+            if (ok) run(() => clearUserTwoFactor(userId), "Sign-in codes turned off");
+          }}
+        >
+          <ShieldOff className="h-3.5 w-3.5" aria-hidden />
+          2FA
+        </Button>
+      )}
 
       {active ? (
         <Button
