@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { unstable_rethrow } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -11,66 +12,93 @@ import { sendClientWelcome } from "@/lib/email";
 
 const USERS_PATH = "/admin/settings/users";
 
-function parseRole(value: unknown): UserRole {
+function parseRole(value: unknown): UserRole | null {
   if (value === "ADMIN" || value === "STAFF" || value === "CLIENT") return value;
-  throw new Error("Invalid role");
+  return null;
 }
 
-export async function createUser(formData: FormData) {
-  const admin = await requireAdminRole();
+function databaseCode(err: unknown): string | null {
+  if (typeof err !== "object" || err === null || !("code" in err)) return null;
+  const code = (err as { code?: unknown }).code;
+  return typeof code === "string" && /^P\d+$/.test(code) ? code : null;
+}
 
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const name = String(formData.get("name") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
-  const role = parseRole(formData.get("role"));
-  const companyName = String(formData.get("companyName") ?? "").trim();
+export async function createUser(
+  formData: FormData
+): Promise<{ welcomeSent: boolean; role: UserRole } | { error: string }> {
+  try {
+    const admin = await requireAdminRole();
 
-  if (!email || !email.includes("@")) throw new Error("Valid email is required");
-  if (!name) throw new Error("Name is required");
-  if (password.length < 8) throw new Error("Password must be at least 8 characters");
-  if (role === UserRole.CLIENT && !companyName) {
-    throw new Error("Company name is required for client accounts");
+    const email = String(formData.get("email") ?? "").trim().toLowerCase();
+    const name = String(formData.get("name") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
+    const role = parseRole(formData.get("role"));
+    const companyName = String(formData.get("companyName") ?? "").trim();
+
+    if (!role) return { error: "Choose a role" };
+    if (!email || !email.includes("@")) return { error: "Enter a valid email" };
+    if (!name) return { error: "Name is required" };
+    if (password.length < 8) return { error: "Password must be at least 8 characters" };
+    if (role === UserRole.CLIENT && !companyName) {
+      return { error: "Company name is required for client accounts" };
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) return { error: "A user with that email already exists" };
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name,
+        role,
+        passwordHash,
+        ...(role === UserRole.CLIENT
+          ? { clientProfile: { create: { companyName, contactName: name } } }
+          : {}),
+        ...(role === UserRole.STAFF || role === UserRole.ADMIN
+          ? { staffProfile: { create: {} } }
+          : {}),
+      },
+    });
+
+    try {
+      await logActivity({
+        actorId: admin.id,
+        action: "user.created",
+        entityType: "user",
+        entityId: user.id,
+        metadata: { email, role },
+      });
+    } catch (err) {
+      console.error("[users] activity log failed", err);
+    }
+
+    const welcomeSent =
+      role === UserRole.CLIENT
+        ? await sendClientWelcome({
+            email,
+            name,
+            companyName,
+          })
+        : false;
+
+    revalidatePath(USERS_PATH);
+    return { welcomeSent, role };
+  } catch (err) {
+    unstable_rethrow(err);
+    console.error("[users] create failed", err);
+    if (databaseCode(err) === "P2002") {
+      return { error: "A user with that email already exists" };
+    }
+    const code = databaseCode(err);
+    return {
+      error: code
+        ? `Could not create the user (${code}).`
+        : "Could not create the user. Try again.",
+    };
   }
-
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) throw new Error("A user with that email already exists");
-
-  const passwordHash = await bcrypt.hash(password, 12);
-
-  const user = await prisma.user.create({
-    data: {
-      email,
-      name,
-      role,
-      passwordHash,
-      ...(role === UserRole.CLIENT
-        ? { clientProfile: { create: { companyName, contactName: name } } }
-        : {}),
-      ...(role === UserRole.STAFF || role === UserRole.ADMIN
-        ? { staffProfile: { create: {} } }
-        : {}),
-    },
-  });
-
-  await logActivity({
-    actorId: admin.id,
-    action: "user.created",
-    entityType: "user",
-    entityId: user.id,
-    metadata: { email, role },
-  });
-
-  const welcomeSent =
-    role === UserRole.CLIENT
-      ? await sendClientWelcome({
-          email,
-          name,
-          companyName,
-        })
-      : false;
-
-  revalidatePath(USERS_PATH);
-  return { welcomeSent, role };
 }
 
 async function assertNotLastAdmin(userId: string) {
@@ -89,6 +117,7 @@ async function assertNotLastAdmin(userId: string) {
 export async function updateUserRole(userId: string, formData: FormData) {
   const admin = await requireAdminRole();
   const role = parseRole(formData.get("role"));
+  if (!role) throw new Error("Invalid role");
 
   if (userId === admin.id) throw new Error("You cannot change your own role");
 

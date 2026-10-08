@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/providers/toast-provider";
 import { createUser } from "@/actions/users";
+import { actionErrorMessage } from "@/lib/action-error";
 import { Loader2, RefreshCw } from "lucide-react";
 
 function generatePassword(): string {
@@ -32,6 +33,10 @@ export function CreateUserForm() {
         startTransition(async () => {
           try {
             const result = await createUser(formData);
+            if ("error" in result) {
+              error("Could not create user", result.error);
+              return;
+            }
             success(
               "User created",
               result.role === "CLIENT"
@@ -44,10 +49,7 @@ export function CreateUserForm() {
             setPassword("");
             setRole("CLIENT");
           } catch (err) {
-            error(
-              "Could not create user",
-              err instanceof Error ? err.message : undefined
-            );
+            error("Could not create user", actionErrorMessage(err));
           }
         });
       }}
