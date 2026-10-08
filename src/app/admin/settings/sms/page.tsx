@@ -6,6 +6,7 @@ import { SettingField } from "@/components/settings/setting-field";
 import { TestSmsButton } from "@/components/settings/test-sms-button";
 import { saveSettings } from "@/actions/settings";
 import { getSettingsStatus, type SettingKey } from "@/lib/settings";
+import { listVoidfixDevices } from "@/lib/sms";
 import { Smartphone } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -15,8 +16,15 @@ export const metadata: Metadata = {
 
 const KEYS: SettingKey[] = ["voidfix.apiKey", "voidfix.deviceId"];
 
+function simSummary(slot: number, label: string, number: string | null): string {
+  const name = slot === 0 ? "SIM 1" : "SIM 2";
+  if (number) return `${name} ${number}`;
+  return `${name} (${label})`;
+}
+
 export default async function SmsSettingsPage() {
   const [apiKey, deviceId] = await getSettingsStatus(KEYS);
+  const phones = apiKey.isSet ? await listVoidfixDevices() : null;
 
   return (
     <FormPanel
@@ -42,9 +50,34 @@ export default async function SmsSettingsPage() {
             VoidFix → API & Settings
           </a>{" "}
           and copy the API key. Leave the device ID blank to use your primary
-          phone.
+          phone. A saved ID uses SIM 1 unless that slot is empty, in which case
+          the SIM that has a number is used.
         </p>
       </div>
+      {phones && !phones.ok && (
+        <AlertBanner variant="warning" className="mb-4">
+          {phones.error}
+        </AlertBanner>
+      )}
+      {phones?.ok && phones.devices.length === 0 && (
+        <AlertBanner variant="warning" className="mb-4">
+          VoidFix accepted the API key, and no phones are connected.
+        </AlertBanner>
+      )}
+      {phones?.ok && phones.devices.length > 0 && (
+        <div className="mb-5 space-y-1 text-sm text-muted-foreground">
+          {phones.devices.map((phone) => (
+            <p key={phone.id}>
+              <span className="font-medium text-foreground">
+                {phone.name ?? phone.model ?? "Phone"} ({phone.id})
+              </span>
+              {phone.sims.length > 0
+                ? ` — ${phone.sims.map((sim) => simSummary(sim.slot, sim.label, sim.number)).join(", ")}`
+                : " — connected, no SIM listed"}
+            </p>
+          ))}
+        </div>
+      )}
       <SettingsForm action={saveSettings.bind(null, KEYS)}>
         <SettingField
           status={apiKey}
@@ -56,7 +89,7 @@ export default async function SmsSettingsPage() {
           status={deviceId}
           label="Device ID"
           placeholder="12"
-          hint="Optional. The phone ID from VoidFix → Devices."
+          hint="Optional. The phone ID from VoidFix → Devices, such as 1383. Add |1 to use SIM 2, for example 1383|1."
         />
       </SettingsForm>
       {apiKey.isSet && (
