@@ -2,16 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
-import { Prisma, SmsDirection, TaskStatus, UserRole } from "@prisma/client";
+import { Prisma, SmsDirection, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/session-guard";
 import { assertClientAccess } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity";
 import { getAppUrl } from "@/lib/app-url";
-import { sendSms } from "@/lib/sms";
 import { pullInboundTexts, registerVoidfixWebhook } from "@/lib/sms-inbox";
-import { formatDateTime } from "@/lib/utils";
-import { formatPhone } from "@/lib/phone";
+import {
+  createTaskFromInboundText,
+  linkConversationToClient,
+  sendConversationReply,
+} from "@/lib/text-ops";
 
 async function loadConversation(id: string) {
   return prisma.smsConversation.findUnique({
@@ -98,43 +100,7 @@ export async function linkTextToClient(
   try {
     const user = await requireAdmin();
     if (user.role !== UserRole.ADMIN) return { error: "Only an admin can link a text to a customer" };
-    const conversation = await loadConversation(conversationId);
-    if (!conversation) return { error: "That text thread was not found" };
-    const client = await prisma.client.findFirst({
-      where: { id: clientId, deletedAt: null },
-      select: { id: true, companyName: true, phone: true },
-    });
-    if (!client) return { error: "Choose a customer" };
-
-    await prisma.$transaction(async (tx) => {
-      await tx.smsConversation.update({
-        where: { id: conversation.id },
-        data: { clientId: client.id },
-      });
-      if (!client.phone?.trim()) {
-        await tx.client.update({
-          where: { id: client.id },
-          data: { phone: conversation.phone },
-        });
-      }
-    });
-
-    try {
-      await logActivity({
-        actorId: user.id,
-        clientId: client.id,
-        action: "sms.linked",
-        entityType: "sms",
-        entityId: conversation.id,
-        metadata: { phone: conversation.phone, companyName: client.companyName },
-      });
-    } catch (err) {
-      console.error("[texts] activity log failed", err);
-    }
-
-    refreshTexts(conversation.id);
-    revalidatePath(`/admin/clients/${client.id}`);
-    return { ok: true };
+    return linkConversationToClient(conversationId, clientId, { actorId: user.id });
   } catch (err) {
     unstable_rethrow(err);
     console.error("[texts] link failed", err);
@@ -151,47 +117,8 @@ export async function replyToText(
     const conversation = await loadConversation(conversationId);
     if (!conversation) return { error: "That text thread was not found" };
     await assertThreadAccess(user, conversation);
-    const message = body.trim();
-    if (!message) return { error: "Write a reply first" };
-    if (message.length > 1000) return { error: "Keep the reply under 1000 characters" };
-
-    const sent = await sendSms({ to: conversation.phone, message });
-    if (!sent.ok) return { error: sent.error };
-
-    const now = new Date();
-    await prisma.$transaction([
-      prisma.smsMessage.create({
-        data: {
-          conversationId: conversation.id,
-          voidfixId: sent.id ?? null,
-          direction: SmsDirection.OUTBOUND,
-          body: message,
-          status: sent.dev ? "Logged" : "Pending",
-          sentAt: now,
-        },
-      }),
-      prisma.smsConversation.update({
-        where: { id: conversation.id },
-        data: {
-          lastMessageAt: now,
-          lastPreview: message.replace(/\s+/g, " ").slice(0, 160),
-        },
-      }),
-    ]);
-
-    try {
-      await logActivity({
-        actorId: user.id,
-        clientId: conversation.clientId ?? undefined,
-        action: "sms.replied",
-        entityType: "sms",
-        entityId: conversation.id,
-      });
-    } catch (err) {
-      console.error("[texts] activity log failed", err);
-    }
-
-    refreshTexts(conversation.id);
+    const result = await sendConversationReply(conversationId, body, { actorId: user.id });
+    if ("error" in result) return result;
     return { ok: true };
   } catch (err) {
     unstable_rethrow(err);
@@ -212,79 +139,29 @@ export async function createTaskFromText(input: {
     const user = await requireAdmin();
     const message = await prisma.smsMessage.findUnique({
       where: { id: input.messageId },
-      include: {
+      select: {
+        deletedAt: true,
+        direction: true,
         conversation: {
-          include: { client: { select: { id: true, companyName: true, deletedAt: true } } },
+          select: { clientId: true, client: { select: { deletedAt: true } } },
         },
-        task: { select: { id: true, deletedAt: true } },
       },
     });
     if (!message || message.deletedAt || message.direction !== SmsDirection.INBOUND) {
       return { error: "That text was not found" };
     }
-    if (message.task && !message.task.deletedAt) return { ok: true, taskId: message.task.id };
-
-    const conversation = message.conversation;
-    if (!conversation.clientId || conversation.client?.deletedAt) {
+    const clientId = message.conversation.clientId;
+    if (!clientId || message.conversation.client?.deletedAt) {
       return { error: "Link this number to a customer before making a task" };
     }
-    await assertClientAccess(user, conversation.clientId);
-
-    const title = input.title.trim().slice(0, 140);
-    if (!title) return { error: "Add a task title" };
-    const assignee = await prisma.user.findFirst({
-      where: {
-        id: input.assigneeId,
-        deletedAt: null,
-        role: { in: [UserRole.ADMIN, UserRole.STAFF] },
-      },
-      select: { id: true },
+    await assertClientAccess(user, clientId);
+    return createTaskFromInboundText({
+      messageId: input.messageId,
+      title: input.title,
+      assigneeId: input.assigneeId,
+      createdById: user.id,
+      actor: { actorId: user.id },
     });
-    if (!assignee) return { error: "Choose someone to assign the task to" };
-
-    const description = [
-      message.body,
-      "",
-      `Texted ${formatDateTime(message.sentAt)} from ${formatPhone(conversation.phone)}.`,
-    ].join("\n");
-
-    const task = await prisma.$transaction(async (tx) => {
-      const created = await tx.task.create({
-        data: {
-          title,
-          description,
-          clientId: conversation.clientId,
-          assigneeId: assignee.id,
-          status: TaskStatus.NEW,
-          priority: "medium",
-          scheduledDate: new Date(),
-          clientVisible: true,
-          createdById: user.id,
-        },
-      });
-      await tx.smsMessage.update({
-        where: { id: message.id },
-        data: { taskId: created.id },
-      });
-      return created;
-    });
-
-    try {
-      await logActivity({
-        actorId: user.id,
-        clientId: conversation.clientId,
-        action: "sms.task_created",
-        entityType: "task",
-        entityId: task.id,
-        metadata: { companyName: conversation.client?.companyName },
-      });
-    } catch (err) {
-      console.error("[texts] activity log failed", err);
-    }
-
-    refreshTexts(conversation.id);
-    revalidatePath(`/admin/tasks/${task.id}`);
-    return { ok: true, taskId: task.id };
   } catch (err) {
     unstable_rethrow(err);
     if (err instanceof Error && err.message === "Unauthorized") {

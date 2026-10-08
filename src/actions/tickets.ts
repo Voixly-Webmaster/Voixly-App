@@ -7,7 +7,8 @@ import { assertClientAccess } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity";
 import { sendEmail } from "@/lib/email";
 import { renderEmail, renderSms } from "@/lib/message-templates";
-import { notifyClient, textClient } from "@/lib/outreach";
+import { notifyClient } from "@/lib/outreach";
+import { addStaffTicketReply } from "@/lib/ticket-reply";
 import { TicketStatus, UserRole } from "@prisma/client";
 
 async function staffEmailsForClient(clientId: string): Promise<string[]> {
@@ -128,14 +129,22 @@ export async function replyToTicket(ticketId: string, formData: FormData) {
     await assertClientAccess(user, ticket.clientId);
   }
 
-  const isStaff = user.role !== UserRole.CLIENT;
+  if (user.role !== UserRole.CLIENT) {
+    const result = await addStaffTicketReply({
+      ticketId,
+      body,
+      authorId: user.id,
+    });
+    if ("error" in result) throw new Error(result.error);
+    return;
+  }
 
   await prisma.ticketMessage.create({
     data: {
       ticketId,
       authorId: user.id,
       body,
-      isStaff,
+      isStaff: false,
     },
   });
 
@@ -144,12 +153,7 @@ export async function replyToTicket(ticketId: string, formData: FormData) {
       where: { id: ticketId },
       data: { status: TicketStatus.OPEN },
     });
-  } else if (isStaff && ticket.status === TicketStatus.OPEN) {
-    await prisma.supportTicket.update({
-      where: { id: ticketId },
-      data: { status: TicketStatus.WAITING },
-    });
-  } else if (!isStaff && ticket.status === TicketStatus.WAITING) {
+  } else if (ticket.status === TicketStatus.WAITING) {
     await prisma.supportTicket.update({
       where: { id: ticketId },
       data: { status: TicketStatus.OPEN },
@@ -158,17 +162,12 @@ export async function replyToTicket(ticketId: string, formData: FormData) {
 
   const { getAppUrl } = await import("@/lib/app-url");
   const appUrl = await getAppUrl();
-  const ticketUrl = isStaff
-    ? `${appUrl}/portal/support/${ticketId}`
-    : `${appUrl}/admin/tickets/${ticketId}`;
-
-  const notifyEmail = isStaff
-    ? [ticket.client.user.email]
-    : await staffEmailsForClient(ticket.clientId);
+  const ticketUrl = `${appUrl}/admin/tickets/${ticketId}`;
+  const notifyEmail = await staffEmailsForClient(ticket.clientId);
 
   if (notifyEmail.length > 0) {
     try {
-      const email = await renderEmail(isStaff ? "ticket-reply" : "ticket-reply-staff", {
+      const email = await renderEmail("ticket-reply-staff", {
         subject: ticket.subject,
         preview: body.slice(0, 200),
         url: ticketUrl,
@@ -180,21 +179,6 @@ export async function replyToTicket(ticketId: string, formData: FormData) {
       });
     } catch (err) {
       console.error("[ticket] notify failed", err);
-    }
-  }
-
-  if (isStaff) {
-    try {
-      await textClient(
-        ticket.clientId,
-        await renderSms("ticket-reply", {
-          subject: ticket.subject,
-          preview: body.slice(0, 200),
-          url: ticketUrl,
-        })
-      );
-    } catch (err) {
-      console.error("[ticket] text notify failed", err);
     }
   }
 

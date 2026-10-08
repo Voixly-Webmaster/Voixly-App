@@ -121,6 +121,7 @@ model User {
   loginTickets    LoginTicket[]
   passwordResets  PasswordResetToken[]
   accountInvites  AccountInvite[]
+  botTokens       BotToken[]
 
   @@index([role])
   @@index([deletedAt])
@@ -646,4 +647,42 @@ model AccountInvite {
 
   @@index([userId, createdAt])
   @@map("account_invites")
+}
+
+model BotToken {
+  id          String    @id @default(cuid())
+  name        String
+  /** SHA-256 of the vx_live_ secret. The secret is shown once and never stored. */
+  tokenHash   String    @unique
+  prefix      String
+  /** Space-separated scopes, such as texts:read. */
+  scopes      String    @db.VarChar(191)
+  createdById String
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  createdBy   User             @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  idempotency BotIdempotency[]
+
+  @@index([createdById])
+  @@index([revokedAt])
+  @@map("bot_tokens")
+}
+
+model BotIdempotency {
+  id        String   @id @default(cuid())
+  tokenId   String
+  key       String   @db.VarChar(128)
+  method    String
+  path      String   @db.VarChar(191)
+  status    Int
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  token BotToken @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+
+  @@unique([tokenId, key])
+  @@index([createdAt])
+  @@map("bot_idempotency")
 }

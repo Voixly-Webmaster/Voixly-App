@@ -18,7 +18,8 @@ export const authConfig = {
         pathname === "/reset-password" ||
         pathname === "/invite" ||
         pathname.startsWith("/api/auth") ||
-        pathname.startsWith("/api/webhooks");
+        pathname.startsWith("/api/webhooks") ||
+        pathname.startsWith("/api/v1");
       if (isPublic) return true;
       return isLoggedIn;
     },

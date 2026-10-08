@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Settings, Users, CreditCard, Mail, Plug, Package, Smartphone, MessageSquare } from "lucide-react";
+import { Settings, Users, CreditCard, Mail, Plug, Package, Smartphone, MessageSquare, Bot } from "lucide-react";
 
 const tabs = [
   { href: "/admin/settings", label: "General", icon: Settings, exact: true },
@@ -14,6 +14,7 @@ const tabs = [
   { href: "/admin/settings/messages", label: "Messages", icon: MessageSquare, exact: false },
   { href: "/admin/settings/sms", label: "SMS", icon: Smartphone, exact: false },
   { href: "/admin/settings/integrations", label: "Integrations", icon: Plug, exact: false },
+  { href: "/admin/settings/bots", label: "Bots", icon: Bot, exact: false },
 ];
 
 export function SettingsSubnav() {

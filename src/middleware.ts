@@ -20,7 +20,8 @@ export default auth((req) => {
     pathname.startsWith("/api/integrations") ||
     pathname.startsWith("/api/cron") ||
     pathname.startsWith("/api/health") ||
-    pathname.startsWith("/api/setup")
+    pathname.startsWith("/api/setup") ||
+    pathname.startsWith("/api/v1")
   ) {
     return NextResponse.next();
   }
