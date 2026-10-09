@@ -165,8 +165,30 @@ async function storeInbound(
     return await prisma.$transaction(async (tx) => {
       const existing = await tx.smsConversation.findUnique({ where: { phone: message.phone } });
       const matched = matchPeople(index, message.phone);
-      const clientId = existing?.clientId ?? (existing?.userId ? null : matched.clientId);
-      const userId = existing?.userId ?? (clientId ? null : matched.userId);
+      let clientId = existing?.clientId ?? null;
+      let userId = existing?.userId ?? null;
+      if (clientId) {
+        const live = await tx.client.findFirst({
+          where: { id: clientId, deletedAt: null },
+          select: { id: true },
+        });
+        if (!live) clientId = null;
+      }
+      if (userId) {
+        const live = await tx.user.findFirst({
+          where: {
+            id: userId,
+            deletedAt: null,
+            role: { in: [UserRole.ADMIN, UserRole.STAFF] },
+          },
+          select: { id: true },
+        });
+        if (!live) userId = null;
+      }
+      if (!clientId && !userId) {
+        clientId = matched.clientId;
+        userId = matched.clientId ? null : matched.userId;
+      }
       const snippet = preview(message.body);
       const conversation = existing
         ? await tx.smsConversation.update({

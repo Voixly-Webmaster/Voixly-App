@@ -476,6 +476,11 @@ export async function completeAccountSetup(input: {
           where: { id: clientId },
           data: { phone },
         });
+      } else if (teamRole) {
+        await tx.staffProfile.updateMany({
+          where: { userId: invite.userId },
+          data: { phone },
+        });
       }
     });
 

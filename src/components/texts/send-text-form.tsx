@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,12 @@ export function SendTextForm({
   const { success, error } = useToast();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [selected, setSelected] = useState(recipients[0] ? recipientKey(recipients[0]) : "");
+  const firstKey = recipients[0] ? recipientKey(recipients[0]) : "";
+  const [selected, setSelected] = useState(firstKey);
+  const recipientKeys = recipients.map(recipientKey).join("|");
+  useEffect(() => {
+    setSelected((current) => (recipientKeys.split("|").includes(current) ? current : firstKey));
+  }, [recipientKeys, firstKey]);
 
   if (recipients.length === 0) {
     return <p className="text-sm text-muted-foreground">No one to text yet.</p>;
@@ -64,7 +69,9 @@ export function SendTextForm({
         });
       }}
     >
-      {!locked && (
+      {locked ? (
+        <p className="text-sm text-muted-foreground">To {recipients[0]?.label}</p>
+      ) : (
         <div className="space-y-2">
           <Label htmlFor="text-recipient">To</Label>
           <select

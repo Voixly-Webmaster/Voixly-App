@@ -155,6 +155,8 @@ export default async function TextThreadPage({
         <TextThreadMessages
           conversationId={thread.id}
           linked={linked}
+          inboundLabel={teammate ? teammateRole : "Customer"}
+          showTaskPrompt={!teammate}
           defaultAssigneeId={user.id}
           assignees={assignees.map((person) => ({
             id: person.id,

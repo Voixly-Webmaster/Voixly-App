@@ -101,13 +101,42 @@ async function threadForPhone(phone: string) {
   return candidates.find((row) => phonesMatch(row.phone, phone)) ?? null;
 }
 
+type PhoneReader = {
+  client: Prisma.TransactionClient["client"];
+  user: Prisma.TransactionClient["user"];
+};
+
+async function phoneOwnedBySomeoneElse(
+  db: PhoneReader,
+  phone: string,
+  clientId: string
+): Promise<boolean> {
+  const [clients, teammates] = await Promise.all([
+    db.client.findMany({
+      where: { deletedAt: null, id: { not: clientId }, NOT: { phone: null } },
+      select: { phone: true },
+    }),
+    db.user.findMany({
+      where: { deletedAt: null, role: { in: [UserRole.ADMIN, UserRole.STAFF] } },
+      select: { twoFactorPhone: true, staffProfile: { select: { phone: true } } },
+    }),
+  ]);
+  return (
+    clients.some((row) => phonesMatch(row.phone, phone)) ||
+    teammates.some(
+      (row) => phonesMatch(row.staffProfile?.phone, phone) || phonesMatch(row.twoFactorPhone, phone)
+    )
+  );
+}
+
 async function numberTaken(
+  db: PhoneReader,
   existing: { clientId: string | null; userId: string | null } | null,
   person: TextPerson
 ): Promise<string | null> {
   if (!existing) return null;
   if (existing.clientId && !(person.kind === "client" && existing.clientId === person.id)) {
-    const owner = await prisma.client.findFirst({
+    const owner = await db.client.findFirst({
       where: { id: existing.clientId, deletedAt: null },
       select: { id: true },
     });
@@ -118,7 +147,7 @@ async function numberTaken(
     }
   }
   if (existing.userId && !(person.kind === "user" && existing.userId === person.id)) {
-    const owner = await prisma.user.findFirst({
+    const owner = await db.user.findFirst({
       where: {
         id: existing.userId,
         deletedAt: null,
@@ -148,7 +177,7 @@ async function sendTextToPerson(
   if (message.length > 1000) return { error: "Keep the text under 1000 characters" };
 
   const match = await threadForPhone(person.phone);
-  const taken = await numberTaken(match, person);
+  const taken = await numberTaken(prisma, match, person);
   if (taken) return { error: taken };
 
   const sent = await sendSms({ to: person.phone, message });
@@ -165,8 +194,8 @@ async function sendTextToPerson(
       const existing = match
         ? await tx.smsConversation.findUnique({ where: { id: match.id } })
         : await tx.smsConversation.findUnique({ where: { phone: person.phone } });
-      const blocked = await numberTaken(existing, person);
-      if (blocked) throw new Error(blocked);
+      const blocked = await numberTaken(tx, existing, person);
+      if (blocked) return { ok: false as const, error: blocked };
       const conversation = existing
         ? await tx.smsConversation.update({
             where: { id: existing.id },
@@ -192,22 +221,21 @@ async function sendTextToPerson(
         },
         select: { id: true },
       });
-      return { conversationId: conversation.id, messageId: created.id };
+      return { ok: true as const, conversationId: conversation.id, messageId: created.id };
     });
 
   let saved: { conversationId: string; messageId: string };
   try {
-    saved = await record();
+    const recorded = await record();
+    if (!recorded.ok) return { error: recorded.error };
+    saved = recorded;
   } catch (err) {
-    if (err instanceof Error && err.message.startsWith("That number is already linked")) {
-      return { error: err.message };
-    }
     if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== "P2002") throw err;
     const existing = await prisma.smsConversation.findFirst({
       where: { OR: [{ phone: person.phone }, ...(match ? [{ id: match.id }] : [])] },
       select: { id: true, clientId: true, userId: true },
     });
-    const blocked = await numberTaken(existing, person);
+    const blocked = await numberTaken(prisma, existing, person);
     if (!existing || blocked) return { error: blocked ?? "Could not save the text" };
     const created = await prisma.smsMessage.create({
       data: {
@@ -327,9 +355,20 @@ export async function linkConversationToClient(
 ): Promise<{ ok: true } | { error: string }> {
   const conversation = await prisma.smsConversation.findUnique({
     where: { id: conversationId },
-    select: { id: true, phone: true },
+    select: { id: true, phone: true, userId: true },
   });
   if (!conversation) return { error: "That text thread was not found" };
+  if (conversation.userId) {
+    const teammate = await prisma.user.findFirst({
+      where: {
+        id: conversation.userId,
+        deletedAt: null,
+        role: { in: [UserRole.ADMIN, UserRole.STAFF] },
+      },
+      select: { id: true },
+    });
+    if (teammate) return { error: "That number belongs to a teammate" };
+  }
   const client = await prisma.client.findFirst({
     where: { id: clientId, deletedAt: null },
     select: { id: true, companyName: true, phone: true },
@@ -341,7 +380,7 @@ export async function linkConversationToClient(
       where: { id: conversation.id },
       data: { clientId: client.id, userId: null },
     });
-    if (!client.phone?.trim()) {
+    if (!client.phone?.trim() && !(await phoneOwnedBySomeoneElse(tx, conversation.phone, client.id))) {
       await tx.client.update({
         where: { id: client.id },
         data: { phone: conversation.phone },

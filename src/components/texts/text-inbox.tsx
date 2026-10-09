@@ -201,12 +201,16 @@ export function TextThreadMessages({
   linked,
   assignees,
   defaultAssigneeId,
+  inboundLabel = "Customer",
+  showTaskPrompt = true,
 }: {
   conversationId: string;
   messages: ThreadMessageItem[];
   linked: boolean;
   assignees: { id: string; label: string }[];
   defaultAssigneeId: string;
+  inboundLabel?: string;
+  showTaskPrompt?: boolean;
 }) {
   const confirm = useConfirm();
   const { success, error } = useToast();
@@ -309,7 +313,7 @@ export function TextThreadMessages({
                   <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.body}</p>
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <span>{message.inbound ? "Customer" : "Voixly"}</span>
+                  <span>{message.inbound ? inboundLabel : "Voixly"}</span>
                   <time dateTime={message.sentAtIso}>{message.sentAtLabel}</time>
                   {message.optOut && (
                     <span className="rounded-full bg-destructive/10 px-2 py-0.5 font-medium text-destructive">
@@ -338,11 +342,11 @@ export function TextThreadMessages({
                         defaultAssigneeId={defaultAssigneeId}
                         assignees={assignees}
                       />
-                    ) : (
+                    ) : showTaskPrompt ? (
                       <p className="text-xs text-muted-foreground">
                         Link a customer to turn this into a task.
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 )}
               </div>

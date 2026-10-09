@@ -25,8 +25,24 @@ export default async function TextsPage({
   searchParams: Promise<{ q?: string; client?: string; unlinked?: string }>;
 }) {
   const user = await requireAdmin();
-  const { q, client: clientId, unlinked } = await searchParams;
+  const { q, client: requestedClientId, unlinked } = await searchParams;
   const scope = await getStaffClientScope(user);
+  const allowedClientId =
+    requestedClientId && (scope === "all" || scope.includes(requestedClientId))
+      ? requestedClientId
+      : undefined;
+  const filteredClient = allowedClientId
+    ? await prisma.client.findFirst({
+        where: { id: allowedClientId, deletedAt: null },
+        select: {
+          id: true,
+          companyName: true,
+          phone: true,
+          user: { select: { twoFactorPhone: true } },
+        },
+      })
+    : null;
+  const clientId = filteredClient?.id;
   const showUnlinked = user.role === UserRole.ADMIN && unlinked === "1" && !clientId;
   const query = q?.trim() ?? "";
   const digits = query.replace(/\D/g, "");
@@ -66,7 +82,7 @@ export default async function TextsPage({
       ? { deletedAt: null }
       : { deletedAt: null, id: { in: scope.length ? scope : ["__none__"] } };
 
-  const [threads, filteredClient, customers, teammates] = await Promise.all([
+  const [threads, customers, teammates] = await Promise.all([
     prisma.smsConversation.findMany({
       where,
       include: {
@@ -77,17 +93,13 @@ export default async function TextsPage({
       take: 100,
     }),
     clientId
-      ? prisma.client.findFirst({
-          where: { id: clientId, deletedAt: null },
-          select: { companyName: true },
-        })
-      : Promise.resolve(null),
-    prisma.client.findMany({
-      where: clientWhere,
-      select: { id: true, companyName: true, phone: true, user: { select: { twoFactorPhone: true } } },
-      orderBy: { companyName: "asc" },
-      take: 200,
-    }),
+      ? Promise.resolve([])
+      : prisma.client.findMany({
+          where: clientWhere,
+          select: { id: true, companyName: true, phone: true, user: { select: { twoFactorPhone: true } } },
+          orderBy: { companyName: "asc" },
+          take: 200,
+        }),
     clientId
       ? Promise.resolve([])
       : prisma.user.findMany({
@@ -129,9 +141,9 @@ export default async function TextsPage({
         accent="secondary"
       >
         <SendTextForm
-          locked={Boolean(clientId)}
+          locked={Boolean(filteredClient)}
           recipients={[
-            ...customers.map((customer) => {
+            ...(filteredClient ? [filteredClient] : customers).map((customer) => {
               const phone =
                 normalizePhone(customer.phone ?? "") ?? normalizePhone(customer.user.twoFactorPhone ?? "");
               return {
