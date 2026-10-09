@@ -113,7 +113,7 @@ export default async function AdminClientsPage({
       {user.role === UserRole.ADMIN && (
         <FormPanel
           title="Invite a customer"
-          description="Email, name, and company. Their tier and product set the first invoice, then they choose a password and mobile number."
+          description="Email, name, and company. A product is optional and creates their first invoice. They choose a password and mobile number from the email."
           icon={MailPlus}
         >
           <InviteClientForm

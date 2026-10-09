@@ -37,7 +37,7 @@ export default async function UsersSettingsPage() {
     <div className="space-y-6">
       <FormPanel
         title="Add teammate"
-        description="Set a password, or email them a link to set up their own account. Invite a customer from Clients so their service and first invoice are ready."
+        description="Set a password, or email them a link to set up their own account. Invite a customer from Clients."
         icon={UserPlus}
       >
         <CreateUserForm />

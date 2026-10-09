@@ -136,6 +136,12 @@ export const MESSAGE_FLOWS: MessageFlow[] = [
       { token: "product", label: "Service", sample: "Website care" },
       { token: "amount", label: "Price", sample: "$250.00" },
       { token: "interval", label: "Billing interval", sample: "monthly" },
+      {
+        token: "service",
+        label: "Service sentence, empty when no product was chosen",
+        sample:
+          " Your service is Website care, billed monthly at $250.00. Your first invoice will be waiting in Billing.",
+      },
       { token: "url", label: "Setup link", sample: "https://app.voixly.com/invite" },
     ],
     fields: [
@@ -143,7 +149,7 @@ export const MESSAGE_FLOWS: MessageFlow[] = [
       {
         key: "preheader",
         label: "Preview text",
-        defaultValue: "{{product}} is ready for {{company}}.",
+        defaultValue: "Set up your Voixly account for {{company}}.",
       },
       { key: "title", label: "Heading", defaultValue: "You're invited" },
       {
@@ -151,7 +157,7 @@ export const MESSAGE_FLOWS: MessageFlow[] = [
         label: "Body",
         multiline: true,
         defaultValue:
-          "{{greeting}}\n\n{{company}} has a Voixly ClientHub account waiting. Your service is {{product}}, billed {{interval}} at {{amount}}.\n\nChoose a password and add your mobile number to finish setup. Your first invoice will be waiting in Billing.",
+          "{{greeting}}\n\n{{company}} has a Voixly ClientHub account waiting.{{service}}\n\nChoose a password and add your mobile number to finish setup.",
       },
       { key: "button", label: "Button", defaultValue: "Set up your account" },
       {

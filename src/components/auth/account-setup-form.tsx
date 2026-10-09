@@ -49,9 +49,11 @@ export function AccountSetupForm({
           </>
         ) : (
           <>
-            <p className="font-medium text-foreground">{preview.product}</p>
+            <p className="font-medium text-foreground">
+              {preview.product || preview.company}
+            </p>
             <p className="mt-1 text-muted-foreground">
-              {preview.company}
+              {preview.product ? preview.company : "Voixly ClientHub"}
               {preview.amount ? ` · ${preview.amount}` : ""}
               {preview.interval ? ` ${preview.interval}` : ""}
             </p>

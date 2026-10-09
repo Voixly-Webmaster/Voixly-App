@@ -23,16 +23,7 @@ export function InviteClientForm({
   const [email, setEmail] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [tier, setTier] = useState("");
-  const [productId, setProductId] = useState(products[0]?.id ?? "");
-
-  if (products.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Add an active product in Settings → Products before inviting a customer.
-        The product becomes their service and their first invoice.
-      </p>
-    );
-  }
+  const [productId, setProductId] = useState("");
 
   return (
     <form
@@ -56,14 +47,18 @@ export function InviteClientForm({
             success(
               "Invite sent",
               result.emailSent
-                ? `${email} can set up their account from the email. Their first invoice is ready.`
-                : "The customer and invoice were created, but the email did not send. Open the client and resend the invite."
+                ? productId
+                  ? `${email} can set up their account from the email. Their first invoice is ready.`
+                  : `${email} can set up their account from the email.`
+                : productId
+                  ? "The customer and invoice were created, but the email did not send. Open the client and resend the invite."
+                  : "The customer was created, but the email did not send. Open the client and resend the invite."
             );
             setName("");
             setEmail("");
             setCompanyName("");
             setTier("");
-            setProductId(products[0]?.id ?? "");
+            setProductId("");
             router.refresh();
           } catch (err) {
             error("Could not send invite", actionErrorMessage(err));
@@ -126,14 +121,17 @@ export function InviteClientForm({
       </div>
       <div className="space-y-2 sm:col-span-2">
         <Label htmlFor="invite-product">Product</Label>
+        <p className="text-xs text-muted-foreground">
+          Optional. Choosing one creates their service and first invoice.
+        </p>
         <select
           id="invite-product"
           value={productId}
           onChange={(e) => setProductId(e.target.value)}
           className={selectClassName}
-          required
           disabled={pending}
         >
+          <option value="">No product</option>
           {products.map((product) => (
             <option key={product.id} value={product.id}>
               {product.label}

@@ -62,6 +62,15 @@ function roleLabel(role: UserRole): string {
   return "Client";
 }
 
+function serviceSentence(service: {
+  name: string;
+  amountCents: number;
+  interval: Parameters<typeof intervalLabel>[0];
+} | null): string {
+  if (!service) return "";
+  return ` Your service is ${service.name}, billed ${intervalLabel(service.interval)} at ${formatCurrency(service.amountCents)}. Your first invoice will be waiting in Billing.`;
+}
+
 async function sendInviteEmail(params: {
   email: string;
   name: string;
@@ -69,6 +78,7 @@ async function sendInviteEmail(params: {
   product: string;
   amount: string;
   interval: string;
+  service: string;
   setupUrl: string;
 }): Promise<boolean> {
   try {
@@ -80,6 +90,7 @@ async function sendInviteEmail(params: {
       product: params.product,
       amount: params.amount,
       interval: params.interval,
+      service: params.service,
       url: params.setupUrl,
     });
     const result = await sendEmail({
@@ -188,7 +199,6 @@ export async function inviteClient(
     if (!name) return { error: "Name is required" };
     if (!email || !email.includes("@")) return { error: "Enter a valid email" };
     if (!companyName) return { error: "Company name is required" };
-    if (!productId) return { error: "Choose a product" };
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -199,12 +209,14 @@ export async function inviteClient(
       };
     }
 
-    const product = await prisma.product.findFirst({
-      where: { id: productId, active: true, deletedAt: null },
-    });
-    if (!product) return { error: "That product is not available" };
+    const product = productId
+      ? await prisma.product.findFirst({
+          where: { id: productId, active: true, deletedAt: null },
+        })
+      : null;
+    if (productId && !product) return { error: "That product is not available" };
 
-    const invoiceNumber = await generateInvoiceNumber();
+    const invoiceNumber = product ? await generateInvoiceNumber() : null;
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 14);
     dueDate.setHours(12, 0, 0, 0);
@@ -223,30 +235,32 @@ export async function inviteClient(
       });
       const clientId = created.clientProfile?.id;
       if (!clientId) throw new Error("Client profile was not created");
-      await tx.recurringInvoice.create({
-        data: {
-          clientId,
-          productId: product.id,
-          title: product.name,
-          description: product.description,
-          amountCents: product.amountCents,
-          interval: product.interval,
-          status: RecurringStatus.PENDING,
-          createdById: admin.id,
-          invoices: {
-            create: {
-              clientId,
-              invoiceNumber,
-              title: product.name,
-              description: product.description,
-              amountCents: product.amountCents,
-              status: InvoiceStatus.SENT,
-              dueDate,
-              sentAt: new Date(),
+      if (product && invoiceNumber) {
+        await tx.recurringInvoice.create({
+          data: {
+            clientId,
+            productId: product.id,
+            title: product.name,
+            description: product.description,
+            amountCents: product.amountCents,
+            interval: product.interval,
+            status: RecurringStatus.PENDING,
+            createdById: admin.id,
+            invoices: {
+              create: {
+                clientId,
+                invoiceNumber,
+                title: product.name,
+                description: product.description,
+                amountCents: product.amountCents,
+                status: InvoiceStatus.SENT,
+                dueDate,
+                sentAt: new Date(),
+              },
             },
           },
-        },
-      });
+        });
+      }
       return created;
     });
 
@@ -256,9 +270,14 @@ export async function inviteClient(
       email,
       name,
       company: companyName,
-      product: product.name,
-      amount: formatCurrency(product.amountCents),
-      interval: intervalLabel(product.interval),
+      product: product?.name ?? "",
+      amount: product ? formatCurrency(product.amountCents) : "",
+      interval: product ? intervalLabel(product.interval) : "",
+      service: serviceSentence(
+        product
+          ? { name: product.name, amountCents: product.amountCents, interval: product.interval }
+          : null
+      ),
       setupUrl: await setupUrlFor(raw),
     });
 
@@ -271,7 +290,7 @@ export async function inviteClient(
         entityId: clientId,
         metadata: {
           email,
-          product: product.name,
+          product: product?.name ?? "",
           tier,
           emailSent,
         },
@@ -317,14 +336,20 @@ export async function resendClientInvite(
     if (client.user.passwordHash) return { error: "This customer already finished setup" };
 
     const service = client.recurringInvoices[0];
+    const serviceName = service?.product?.name ?? service?.title ?? "";
     const raw = await issueInvite(client.user.id);
     const emailSent = await sendInviteEmail({
       email: client.user.email,
       name: client.contactName ?? client.user.name ?? "",
       company: client.companyName,
-      product: service?.product?.name ?? service?.title ?? "your Voixly service",
+      product: serviceName,
       amount: service ? formatCurrency(service.amountCents) : "",
       interval: service ? intervalLabel(service.interval) : "",
+      service: serviceSentence(
+        service && serviceName
+          ? { name: serviceName, amountCents: service.amountCents, interval: service.interval }
+          : null
+      ),
       setupUrl: await setupUrlFor(raw),
     });
 
@@ -409,7 +434,7 @@ export async function getInvitePreview(token: string): Promise<InvitePreview | n
     kind: "client",
     roleLabel: "Client",
     company: client.companyName,
-    product: service?.product?.name ?? service?.title ?? "your Voixly service",
+    product: service?.product?.name ?? service?.title ?? "",
     description: service?.product?.description ?? service?.description ?? null,
     amount: service ? formatCurrency(service.amountCents) : "",
     interval: service ? intervalLabel(service.interval) : "",
