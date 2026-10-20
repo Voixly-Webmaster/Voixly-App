@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
 import { requireClient } from "@/lib/session-guard";
 import { PageHeader } from "@/components/shared/page-header";
 import { TicketStatusBadge } from "@/components/shared/status-badge";
@@ -16,8 +17,10 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
+  const user = await getSessionUser();
+  if (!user?.clientId) return { title: "Ticket" };
   const ticket = await prisma.supportTicket.findFirst({
-    where: { id, deletedAt: null },
+    where: { id, clientId: user.clientId, deletedAt: null },
     select: { subject: true },
   });
   return { title: ticket?.subject ?? "Ticket" };

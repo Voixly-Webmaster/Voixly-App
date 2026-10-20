@@ -1,7 +1,5 @@
 import { Resend } from "resend";
 import { getSettings } from "@/lib/settings";
-import { getAppUrl } from "@/lib/app-url";
-import { renderEmail } from "@/lib/message-templates";
 
 export async function sendEmail(params: {
   to: string | string[];
@@ -30,32 +28,4 @@ export async function sendEmail(params: {
     return { ok: false as const, error };
   }
   return { ok: true as const };
-}
-
-export async function sendClientWelcome(params: {
-  email: string;
-  name: string | null;
-  companyName: string;
-}): Promise<boolean> {
-  try {
-    const loginUrl = `${await getAppUrl()}/login`;
-    const name = params.name?.trim() || "";
-    const rendered = await renderEmail("welcome", {
-      name,
-      greeting: name ? `Hi ${name},` : "Hi,",
-      company: params.companyName,
-      email: params.email,
-      loginUrl,
-    });
-    const result = await sendEmail({
-      to: params.email,
-      subject: rendered.subject,
-      html: rendered.html,
-    });
-    if ("dev" in result && result.dev && process.env.NODE_ENV === "production") return false;
-    return result.ok;
-  } catch (err) {
-    console.error("[email] welcome failed", err);
-    return false;
-  }
 }

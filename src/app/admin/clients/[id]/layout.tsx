@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
 import { requireAdmin } from "@/lib/session-guard";
 import { canAccessClient } from "@/lib/permissions";
 import { ClientSubnav } from "@/components/clients/client-subnav";
@@ -11,6 +12,8 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
+  const user = await getSessionUser();
+  if (!user || !(await canAccessClient(user, id))) return { title: "Client" };
   const client = await prisma.client.findFirst({
     where: { id, deletedAt: null },
     select: { companyName: true },

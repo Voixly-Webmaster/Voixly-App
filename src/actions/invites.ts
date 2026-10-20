@@ -40,6 +40,13 @@ function databaseCode(err: unknown): string | null {
   return typeof code === "string" && /^P\d+$/.test(code) ? code : null;
 }
 
+function uniqueFields(err: unknown): string {
+  if (typeof err !== "object" || err === null || !("meta" in err)) return "";
+  const target = (err as { meta?: { target?: unknown } }).meta?.target;
+  if (Array.isArray(target)) return target.join(" ");
+  return typeof target === "string" ? target : "";
+}
+
 async function issueInvite(userId: string): Promise<string> {
   const raw = newSecret();
   await prisma.accountInvite.updateMany({
@@ -306,7 +313,11 @@ export async function inviteClient(
     unstable_rethrow(err);
     console.error("[invite] create failed", err);
     if (databaseCode(err) === "P2002") {
-      return { error: "A user with that email already exists" };
+      return {
+        error: /email/i.test(uniqueFields(err))
+          ? "A user with that email already exists"
+          : "Could not send the invite. Try again.",
+      };
     }
     const code = databaseCode(err);
     return {

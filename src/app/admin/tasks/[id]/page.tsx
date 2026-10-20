@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
 import { requireAdmin } from "@/lib/session-guard";
 import { canAccessClient } from "@/lib/permissions";
 import { PageHeader } from "@/components/shared/page-header";
@@ -10,7 +11,7 @@ import { TaskStatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { addTaskComment, updateTaskStatus } from "@/actions/tasks";
-import { TaskStatus } from "@prisma/client";
+import { TaskStatus, UserRole } from "@prisma/client";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { MessageSquare } from "lucide-react";
 
@@ -20,11 +21,23 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
+  const user = await getSessionUser();
+  if (!user || user.role === UserRole.CLIENT) return { title: "Task" };
   const task = await prisma.task.findFirst({
     where: { id, deletedAt: null },
-    select: { title: true },
+    select: { title: true, clientId: true, assigneeId: true, createdById: true },
   });
-  return { title: task?.title ?? "Task" };
+  if (!task) return { title: "Task" };
+  if (task.clientId) {
+    if (!(await canAccessClient(user, task.clientId))) return { title: "Task" };
+  } else if (
+    user.role !== UserRole.ADMIN &&
+    task.assigneeId !== user.id &&
+    task.createdById !== user.id
+  ) {
+    return { title: "Task" };
+  }
+  return { title: task.title };
 }
 
 export default async function AdminTaskPage({

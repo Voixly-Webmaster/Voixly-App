@@ -5,12 +5,10 @@ import { requireAdmin } from "@/lib/session-guard";
 import { canAccessClient } from "@/lib/permissions";
 import { PageHeader } from "@/components/shared/page-header";
 import { Panel } from "@/components/shared/panel";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
-  updateClientProfile,
   addClientNote,
   assignStaffToClient,
   unassignStaffFromClient,
@@ -23,6 +21,7 @@ import { Building2, StickyNote, Receipt, Users, Send } from "lucide-react";
 import { PendingSubmit } from "@/components/shared/pending-submit";
 import { ResendInviteButton } from "@/components/clients/resend-invite-button";
 import { ClientLogoForm } from "@/components/clients/client-logo";
+import { ClientProfileForm } from "@/components/clients/client-profile-form";
 import { SendTextForm } from "@/components/texts/send-text-form";
 import { formatPhone, normalizePhone } from "@/lib/phone";
 
@@ -125,41 +124,14 @@ export default async function AdminClientDetailPage({
               logoFileName={client.logoFileName}
             />
           </div>
-          <form action={updateClientProfile} className="space-y-4">
-            <input type="hidden" name="clientId" value={client.id} />
-            <div className="space-y-2">
-              <Label>Company</Label>
-              <Input name="companyName" defaultValue={client.companyName} required />
-            </div>
-            <div className="space-y-2">
-              <Label>Contact</Label>
-              <Input name="contactName" defaultValue={client.contactName ?? ""} />
-            </div>
-            <div className="space-y-2">
-              <Label>Phone</Label>
-              <Input name="phone" defaultValue={client.phone ?? ""} />
-            </div>
-            <div className="space-y-2">
-              <Label>Address</Label>
-              <Textarea name="address" defaultValue={client.address ?? ""} rows={2} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="client-tier">Tier</Label>
-              <select
-                id="client-tier"
-                name="tier"
-                className={selectClassName}
-                defaultValue={client.tier ?? ""}
-              >
-                <option value="">None</option>
-                <option value="PLATINUM">Platinum</option>
-                <option value="GOLD">Gold</option>
-                <option value="SILVER">Silver</option>
-                <option value="BRONZE">Bronze</option>
-              </select>
-            </div>
-            <PendingSubmit pendingLabel="Saving…">Save</PendingSubmit>
-          </form>
+          <ClientProfileForm
+            clientId={client.id}
+            companyName={client.companyName}
+            contactName={client.contactName ?? ""}
+            phone={client.phone ?? ""}
+            address={client.address ?? ""}
+            tier={client.tier ?? ""}
+          />
         </Panel>
 
         <Panel title="Internal notes" description="Staff-only — not visible to client" icon={StickyNote}>

@@ -1,5 +1,5 @@
 import { revalidatePath } from "next/cache";
-import { TaskStatus, UserRole } from "@prisma/client";
+import { InvoiceStatus, TaskStatus, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { logActivity } from "@/lib/activity";
 import { normalizePhone, phonesMatch } from "@/lib/phone";
@@ -41,15 +41,17 @@ async function readObject(req: Request): Promise<Record<string, unknown> | Respo
   return data as Record<string, unknown>;
 }
 
-function customerJson(client: {
-  id: string;
-  companyName: string;
-  contactName: string | null;
-  phone: string | null;
-  tier: string | null;
-  balanceCents: number;
-  user: { email: string };
-}) {
+function customerJson(
+  client: {
+    id: string;
+    companyName: string;
+    contactName: string | null;
+    phone: string | null;
+    tier: string | null;
+    user: { email: string };
+  },
+  balanceCents: number
+) {
   return {
     id: client.id,
     company: client.companyName,
@@ -57,8 +59,27 @@ function customerJson(client: {
     email: client.user.email,
     phone: e164(client.phone),
     tier: client.tier,
-    balanceCents: client.balanceCents,
+    balanceCents,
   };
+}
+
+async function withBalances(clients: Parameters<typeof customerJson>[0][]) {
+  const balances = await openBalances(clients.map((client) => client.id));
+  return clients.map((client) => customerJson(client, balances.get(client.id) ?? 0));
+}
+
+async function openBalances(clientIds: string[]): Promise<Map<string, number>> {
+  if (clientIds.length === 0) return new Map();
+  const rows = await prisma.invoice.groupBy({
+    by: ["clientId"],
+    where: {
+      clientId: { in: clientIds },
+      deletedAt: null,
+      status: { in: [InvoiceStatus.SENT, InvoiceStatus.OVERDUE] },
+    },
+    _sum: { amountCents: true },
+  });
+  return new Map(rows.map((row) => [row.clientId, row._sum.amountCents ?? 0]));
 }
 
 const customerSelect = {
@@ -67,7 +88,6 @@ const customerSelect = {
   contactName: true,
   phone: true,
   tier: true,
-  balanceCents: true,
   user: { select: { email: true } },
 } as const;
 
@@ -93,7 +113,7 @@ export async function listCustomers(req: Request) {
       take: 50,
     });
     const customers = candidates.filter((client) => phonesMatch(client.phone, normalized)).slice(0, 25);
-    return botJson({ customers: customers.map(customerJson) });
+    return botJson({ customers: await withBalances(customers) });
   }
 
   const customers = await prisma.client.findMany({
@@ -113,7 +133,7 @@ export async function listCustomers(req: Request) {
     orderBy: { companyName: "asc" },
     take: 25,
   });
-  return botJson({ customers: customers.map(customerJson) });
+  return botJson({ customers: await withBalances(customers) });
 }
 
 export async function getCustomer(id: string) {
@@ -122,7 +142,8 @@ export async function getCustomer(id: string) {
     select: customerSelect,
   });
   if (!client) return botError(404, "That customer was not found");
-  return botJson({ customer: customerJson(client) });
+  const balances = await openBalances([client.id]);
+  return botJson({ customer: customerJson(client, balances.get(client.id) ?? 0) });
 }
 
 export async function listInvoices(customerId: string) {

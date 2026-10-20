@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
 import { requireAdmin } from "@/lib/session-guard";
 import { canAccessClient } from "@/lib/permissions";
 import { PageHeader } from "@/components/shared/page-header";
@@ -22,18 +23,31 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
+  const user = await getSessionUser();
+  if (!user || user.role === UserRole.CLIENT) return { title: "Text" };
   const thread = await prisma.smsConversation.findUnique({
     where: { id },
     select: {
       phone: true,
-      client: { select: { companyName: true } },
-      user: { select: { name: true, email: true, deletedAt: true } },
+      clientId: true,
+      client: { select: { companyName: true, deletedAt: true } },
+      user: { select: { name: true, email: true, role: true, deletedAt: true } },
       messages: { where: { deletedAt: null }, take: 1, select: { id: true } },
     },
   });
   if (!thread || thread.messages.length === 0) return { title: "Text" };
   const teammate =
-    thread.user && !thread.user.deletedAt ? thread.user.name?.trim() || thread.user.email : null;
+    thread.user &&
+    !thread.user.deletedAt &&
+    !thread.clientId &&
+    (thread.user.role === UserRole.ADMIN || thread.user.role === UserRole.STAFF)
+      ? thread.user.name?.trim() || thread.user.email
+      : null;
+  if (!teammate && (!thread.clientId || thread.client?.deletedAt)) {
+    if (user.role !== UserRole.ADMIN) return { title: "Text" };
+  } else if (!teammate && thread.clientId && !(await canAccessClient(user, thread.clientId))) {
+    return { title: "Text" };
+  }
   return { title: thread.client?.companyName ?? teammate ?? formatPhone(thread.phone) };
 }
 

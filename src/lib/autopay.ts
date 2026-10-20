@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
 import { logActivity } from "@/lib/activity";
-import { InvoiceStatus, PaymentStatus } from "@prisma/client";
+import { InvoiceStatus, PaymentStatus, Prisma } from "@prisma/client";
 
 export async function ensureStripeCustomer(params: {
   clientId: string;
@@ -24,6 +24,10 @@ export async function ensureStripeCustomer(params: {
   });
 
   return customer.id;
+}
+
+function isUniqueConstraint(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
 }
 
 /**
@@ -57,34 +61,43 @@ export async function chargeInvoiceWithAutopay(invoiceId: string): Promise<{
   }
 
   const stripe = await getStripe();
+  const day = new Date().toISOString().slice(0, 10);
 
   try {
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: invoice.amountCents,
-      currency: "usd",
-      customer: client.stripeCustomerId,
-      payment_method: client.stripePaymentMethodId,
-      off_session: true,
-      confirm: true,
-      description: `${invoice.invoiceNumber} — ${invoice.title}`,
-      metadata: {
-        invoiceId: invoice.id,
-        clientId: client.id,
-        source: "autopay",
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: invoice.amountCents,
+        currency: "usd",
+        customer: client.stripeCustomerId,
+        payment_method: client.stripePaymentMethodId,
+        off_session: true,
+        confirm: true,
+        description: `${invoice.invoiceNumber} — ${invoice.title}`,
+        metadata: {
+          invoiceId: invoice.id,
+          clientId: client.id,
+          source: "autopay",
+        },
       },
-    });
+      { idempotencyKey: `autopay-${invoice.id}-${day}` }
+    );
 
     if (paymentIntent.status !== "succeeded") {
       return { ok: false, reason: `Payment status: ${paymentIntent.status}` };
     }
 
     const paidAt = new Date();
-    await prisma.$transaction([
-      prisma.invoice.update({
-        where: { id: invoice.id },
-        data: { status: InvoiceStatus.PAID, paidAt },
-      }),
-      prisma.payment.create({
+    const marked = await prisma.invoice.updateMany({
+      where: {
+        id: invoice.id,
+        status: { in: [InvoiceStatus.SENT, InvoiceStatus.OVERDUE] },
+      },
+      data: { status: InvoiceStatus.PAID, paidAt },
+    });
+    if (marked.count === 0) return { ok: true };
+
+    try {
+      await prisma.payment.create({
         data: {
           clientId: client.id,
           invoiceId: invoice.id,
@@ -93,12 +106,12 @@ export async function chargeInvoiceWithAutopay(invoiceId: string): Promise<{
           paidAt,
           stripePaymentIntentId: paymentIntent.id,
         },
-      }),
-      prisma.client.update({
-        where: { id: client.id },
-        data: { balanceCents: { decrement: invoice.amountCents } },
-      }),
-    ]);
+      });
+    } catch (err) {
+      if (!isUniqueConstraint(err)) {
+        console.error("[autopay] payment record failed", invoiceId, err);
+      }
+    }
 
     await logActivity({
       clientId: client.id,

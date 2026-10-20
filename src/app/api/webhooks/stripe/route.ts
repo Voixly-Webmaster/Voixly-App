@@ -121,13 +121,6 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     },
   });
 
-  if (markedPaid.count > 0) {
-    await prisma.client.update({
-      where: { id: clientId },
-      data: { balanceCents: { decrement: invoice.amountCents } },
-    });
-  }
-
   if (session.mode === "subscription" && recurringInvoiceId) {
     const subscriptionId =
       typeof session.subscription === "string"

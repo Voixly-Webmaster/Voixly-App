@@ -35,7 +35,11 @@ export function OwnProfileForm({
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
           try {
-            await updateOwnProfile(formData);
+            const result = await updateOwnProfile(formData);
+            if ("error" in result) {
+              error("Could not save profile", result.error);
+              return;
+            }
             success("Profile saved", "Your contact details are up to date.");
           } catch (err) {
             error("Could not save profile", actionErrorMessage(err));
